@@ -8,6 +8,9 @@ GHV is maintained as a real Git repository. Do not treat release ZIP files as th
 - `v0.5` — GHVC4 speed/stability update
 - `v0.6` — GHVC6 HD pipeline update
 
+Current development is on `codex/ghvc7`. Create `v0.7` only after review/merge
+of the GHVC7 implementation and fixed-video benchmark evidence.
+
 ## Local workflow
 
 ```bash

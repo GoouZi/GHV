@@ -1,6 +1,17 @@
 # GHV / GHA Roadmap
 
-## Current — GHV 0.6
+## Current — GHV 0.7
+
+- GHVC7 / GTC7 transform-domain codec.
+- 8x8 integer WHT, frequency-aware quantization, zig-zag, zero-run and varint levels.
+- I-frame DC/vertical/horizontal prediction and temporal P/skip blocks.
+- Parallel P-block encode/decode with scalar fallback.
+- Fixed Test A: 675.025 MiB -> 443.249 MiB (-34.34%).
+- Fixed Test B: 1350.329 MiB -> 906.208 MiB (-32.89%).
+- Player fatal-video monitoring stops the whole A/V chain.
+- Repeatable human + JSON benchmark with optional PSNR/SSIM.
+
+## Retained — GHV 0.6
 
 - GHVC6 / GBP6 chunked residual codec.
 - Native HD encoder/decoder.
@@ -9,32 +20,24 @@
 - Buffered native playback and playback diagnostics.
 - Experimental local block motion.
 
-## GHV 0.7 — Transform Compression
+## GHV 0.8 — Motion, Entropy, Native Runtime
 
-Primary objective: **large file-size reduction**, while keeping 1080p30 decoding comfortably realtime.
+Primary objective: push Test A below 250 MiB without losing comfortable realtime decode.
 
 Planned research:
 
-- 8x8 integer transform prototype;
-- frequency-aware coefficient quantization;
-- zig-zag scan;
-- zero-run/run-level coefficients;
-- coded-cost block mode selection;
-- improved motion vectors only when they reduce final bits;
-- multi-thread transform/block worker pool;
-- benchmark against the fixed reference MV every build.
-
-Target: move the reference MV from hundreds of MB toward low hundreds of MB without obvious quality collapse.
-
-## GHV 0.8 — Native Runtime
-
+- coded-cost 8/16/32-block local motion and MV prediction;
+- Rice/canonical Huffman/range-style coefficient coding selected by measurements;
+- encoder buffer reuse, persistent workers, and I-frame pipeline optimization;
+- CRF-like quality/rate control and complete preset curves;
+- benchmark against both fixed real videos every build;
 - `libghv` decoder API;
 - no Python in normal playback;
 - direct audio/video synchronization in native runtime;
-- seek/index API;
-- frame callbacks / texture upload path;
-- Godot extension prototype;
-- Windows/Linux/macOS x86-64 and ARM64 validation.
+- seek/index API and frame callbacks / texture upload path;
+- Godot extension prototype.
+
+Target: preserve at least the current ~46 dB real-video PSNR class while producing another architecture-level rate reduction.
 
 ## GHV 0.9 — Container/Modern Features
 

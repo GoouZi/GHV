@@ -1,25 +1,43 @@
-# GHV 0.6 + GHA 0.2
+# GHV 0.7 + GHA 0.2
 
 **GHV — Goou_Zi High-efficiency Video** (`.ghv`)  
 **GHA — Goou_Zi High-efficiency Audio** (`.gha`)
 
-GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. GHV 0.6 uses our own **GHVC6** video codec; embedded/standalone audio uses **GHAC1**.
+GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. GHV 0.7 uses our own transform-domain **GHVC7** video codec; embedded/standalone audio uses **GHAC1**. GHVC6 remains available with `--codec 6` and older files remain decodable.
 
 > Development format: bitstream compatibility can still change before 1.0.
 
-## Why 0.6 exists
+## Why 0.7 exists
 
-The user's real 1080p/30 MV benchmark evolved like this:
+The fixed Test A 960x544/30 compression benchmark evolved like this:
 
 - MP4: **24.6 MB**
 - OGV: **45.2 MB**
 - early GVID: **1.41 GB**
 - GHV 0.4: **927 MB**
-- GHV 0.5: **819 MB**
+- GHV 0.5: **819 MB** (historical run)
+- GHV 0.6: **675.025 MiB** (current-machine rerun)
+- GHV 0.7: **443.249 MiB**
 
-GHV 0.5 was a useful improvement, but 1080p conversion was still slow and large files could stutter or visually freeze while audio continued. GHV 0.6 focuses on the HD pipeline: faster encoding, much faster native decode, real prebuffering, better A/V behavior, and another compression pass.
+Pixel-domain residual packing had reached diminishing returns. GHV 0.7 introduces a real 8x8 integer-transform architecture and cuts both fixed real-video outputs by roughly one third. It also closes a player failure mode where fatal video decode could leave audio running.
 
-## GHV 0.6 highlights
+## GHV 0.7 highlights
+
+- **GHVC7 / GTC7** native transform codec.
+- 8x8 sequency-ordered integer Walsh-Hadamard transform with exact scalar inverse.
+- Frequency-, quality-, and chroma-aware coefficient quantization.
+- I-frame DC, vertical, and horizontal prediction selected by estimated coded size.
+- Closed-loop same-position P prediction and zero-coefficient skip blocks.
+- 3-bit block descriptors, zig-zag scan, trailing-zero elimination, zero-run and signed varint levels.
+- OpenMP P-block encode/decode with a portable scalar fallback.
+- Source-sampled Repeat detection, scene-change I frames, and bounded keyframe intervals.
+- `ghvbench.py` can emit human and JSON reports with encode/decode FPS, CRC, PSNR, and SSIM.
+- Player supports GHVC7 and monitors decoder/mux/presenter health. Fatal video failure now stops the complete A/V chain.
+- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support codec 7.
+
+The first GHVC7 profile intentionally does not write motion vectors yet. Motion must be selected by actual coded cost in a future profile; the experimental GHVC6 `GPM6` code remains in-tree.
+
+## Retained GHV 0.6 features
 
 - **GHVC6** native codec.
 - **GBP6** chunked residual format. Each 256-block chunk is independently packable/decodable.
@@ -43,29 +61,18 @@ GHV 0.5 was a useful improvement, but 1080p conversion was still slow and large 
 - `ghvrepair.py` / `repair.bat` can rebuild a lost/corrupt frame index from intact `VFRM` records.
 - `ghvverify.py` still validates the complete decode path and CRCs.
 
-## Internal 1080p benchmark
+## Fixed real-video benchmark
 
-Development-machine test, 1920x1080, 30 fps, 180 frames, no audio. This is not a promise for every machine or video.
+Development machine, Balanced q78 with GHAC1 HQ audio. These are full fixed-video runs, not synthetic clips.
 
-| Build | Size | Native encode | Notes |
-|---|---:|---:|---|
-| GHV 0.5 / GHVC4 | 40.68 MiB | 32.48 fps | baseline |
-| GHV 0.6 / GHVC6 Balanced | 37.31 MiB | 38.36 fps | current |
+| Test | Codec | Size | Encode | Decode | PSNR | SSIM |
+|---|---|---:|---:|---:|---:|---:|
+| A 960x544 | GHVC6 | 675.025 MiB | 322.68 fps | 209.2 fps | 50.163 dB | 0.995773 |
+| A 960x544 | **GHVC7** | **443.249 MiB** | 162.51 fps | **313.3 fps** | 45.688 dB | 0.985877 |
+| B 1920x1080 | GHVC6 | 1350.329 MiB | 100.04 fps | 82.8 fps | 48.374 dB | 0.995662 |
+| B 1920x1080 | **GHVC7** | **906.208 MiB** | 48.23 fps | **83.8 fps** | 46.894 dB | 0.991389 |
 
-On this test, 0.6 was about **8.3% smaller** and the native encoder was about **18% faster**. End-to-end conversion wall time improved from about 6.25 s to 5.43 s.
-
-The GHV 0.6 native decoder measured roughly **94–100 fps** on the same 1080p stream, over **3x realtime** for 30 fps playback. The raw YUV420 playback pipe itself is about **89 MiB/s** at 1080p30, which is why native decode and buffering matter so much.
-
-A source-vs-decoded test measured roughly **47 dB PSNR** in the current Balanced path. Real footage will vary.
-
-A second 90-frame 1080p30 pipeline microbenchmark after the zero-motion/direct-mux fast path measured:
-
-- native GHVC6 core: **~48.8 fps**;
-- complete video encode path (no audio): **~48.7 fps**;
-- native decode: **~151 fps**;
-- native decoder → FFmpeg rawvideo sink: **~133 fps**.
-
-This test used the development container and is only a regression reference, not a hardware guarantee.
+GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about half as fast as GHVC6, while optimized decode is equal or faster. Both Test B outputs completed full 104.118 s native A/V playback without a freeze on this machine. See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` for method and limitations.
 
 ## Windows quick start
 
@@ -80,13 +87,14 @@ This test used the development container and is only a regression reference, not
 ## Useful commands
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --preset balanced
+python ghvenc.py input.mp4 output.ghv --codec 7 --preset balanced
 python ghvplay.py output.ghv              # Auto buffer
 python ghvverify.py output.ghv
 python ghvdoctor.py output.ghv
 python ghvinfo.py output.ghv
 python ghvrepair.py output.ghv
 python ghvbench.py input.mp4 output.ghv --preset balanced
+python ghvbench.py input.mp4 output.ghv --codec 7 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
 ```
 
 For a large 1080p file, Auto is now the default. You can still force a larger cushion:
@@ -95,10 +103,10 @@ For a large 1080p file, Auto is now the default. You can still force a larger cu
 python ghvplay.py output.ghv --engine native --buffer 24
 ```
 
-Experimental block motion can be enabled manually:
+Legacy GHVC6 and its experimental block motion can still be selected:
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --preset balanced --motion-range 4
+python ghvenc.py input.mp4 output.ghv --codec 6 --preset balanced --motion-range 4
 ```
 
 At the moment normal presets keep motion search at zero because current local motion search can still cost more bytes than it saves on some footage. The feature stays in-tree for continued work rather than being faked as a finished win.
@@ -123,7 +131,7 @@ Interpretation:
 - Verify **PASS**, decoder below ~1.15x realtime: machine/decoder throughput is the likely cause.
 - Verify **PASS**, decoder comfortably above realtime but playback still freezes: presentation/mux/player path needs investigation.
 
-GHV 0.6's native player path uses a decoded-frame queue plus FFmpeg input queues, and `ffplay -sync video`, specifically to attack this class of failure.
+The native player path uses a decoded-frame queue plus FFmpeg input queues and `ffplay -sync video`. GHV 0.7 additionally monitors decoder/mux/presenter exit state and stops the complete chain on fatal video failure.
 
 ## Architecture
 
@@ -135,14 +143,13 @@ MP4 / MKV / MOV / OGV / ...
        YUV420p
           |
           v
-        GHVC6
-   scalar source quantization
+        GHVC7
    I / P / Repeat prediction
-   optional 32x32 local motion
-   closed-loop P residual quantization
-   GBP6 chunked adaptive packing
-   Rice / fixed-bit / sparse modes
-   optional ZP06 zero-run wrapper
+   8x8 integer transform
+   frequency-aware quantization
+   zig-zag + trailing-zero removal
+   zero-run + signed varint levels
+   packed skip/predictor descriptors
           |
           +------ GHAC1 audio
           |
@@ -154,20 +161,19 @@ Preferred playback:
                                               GHAC1 audio -----------^
 ```
 
-FFmpeg is still used as an input decoder and presentation/mux helper. FFmpeg does **not** know how to encode or decode GHVC6 itself.
+FFmpeg is still used as an input decoder and presentation/mux helper. FFmpeg does **not** encode or decode GHVC6/GHVC7 itself.
 
 ## Current target
 
-The first hard target remains **OGV/Theora**, not AV1. The big remaining size breakthrough requires transform-domain coding rather than endlessly tuning pixel residual packing.
+The first hard target remains **OGV/Theora**, not AV1. GHVC7 has reached the first `<500 MiB` Test A stage but is still far from the 45.2 MB historical OGV result.
 
 Next major codec work:
 
-- 8x8 integer transform;
-- coefficient quantization;
-- zig-zag + zero-run coefficient coding;
-- measured entropy coder;
-- better local motion selection;
+- coded-cost local motion and MV prediction;
+- measured Rice/Huffman/range-style coefficient entropy coding;
+- encoder allocation and I-frame pipeline optimization;
+- CRF-like rate control and preset curves;
 - native decoder library/API instead of process-only integration;
 - direct engine integrations.
 
-See `SPEC_GHV_0.6.md`, `PROJECT_STATE.md`, `ROADMAP.md`, and `CHANGELOG.md`.
+See `SPEC_GHV_0.7.md`, `PROJECT_STATE.md`, `ROADMAP.md`, and `CHANGELOG.md`.

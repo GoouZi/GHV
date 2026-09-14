@@ -1,5 +1,26 @@
 # Changelog
 
+## GHV 0.7 / GHA 0.2 — Transform Compression
+
+- Added native **GHVC7 / GTC7**, an in-tree 8x8 integer transform codec.
+- Added frequency-, quality-, and chroma-aware quantization.
+- Added I-frame DC, vertical, and horizontal block prediction selected by coded size.
+- Added closed-loop same-position P prediction and zero-coefficient skip blocks.
+- Added packed 3-bit block descriptors, zig-zag scan, trailing-zero removal, zero-run and signed varint coefficient coding.
+- Added source-sampled Repeat detection so lossy reference drift does not hide repeated source frames.
+- Parallelized GHVC7 P-block forward and inverse transforms with OpenMP while retaining scalar C++17 fallback.
+- Added `--codec 6|7`; GHVC6 remains encodable and GHVC4/5/6 remain decodable.
+- Native decoder, player, verifier, doctor, info, and repair paths now accept GHVC7.
+- Player now monitors decoder, FFmpeg mux, and ffplay concurrently. Fatal video/mux failure stops the complete A/V chain instead of allowing audio to continue with a frozen picture.
+- Upgraded `ghvbench.py` with codec selection, safe Windows console relay, source metadata, decode benchmarking, optional full-file PSNR/SSIM, and saved JSON reports.
+- Added `tests/selftest_v07.py`; retained and explicitly pinned the v0.6 regression test to GHVC6.
+- Fixed multi-configuration CMake output paths so native executables land in `native/bin`.
+- Added `SPEC_GHV_0.7.md` and fixed-video benchmark reports.
+- Fixed Test A result: 675.025 MiB GHVC6 -> **443.249 MiB GHVC7 (-34.34%)**.
+- Fixed Test B result: 1350.329 MiB GHVC6 -> **906.208 MiB GHVC7 (-32.89%)**.
+- Test B GHVC7 native decode reached 83.8 fps / 83.5 fps through the FFmpeg pipe, about 2.8x realtime.
+- Both Test B outputs completed full 104.118 s A/V playback without a freeze on the development machine.
+
 ## GHV 0.6 / GHA 0.2 — HD Pipeline Update
 
 - Native **direct mux** path: ghvcore can write the final `.ghv` video stream/index/header itself; Python only appends audio and patches fixed header fields.

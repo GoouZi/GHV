@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-14",
+  "platform": "Windows x64, MSVC 19.50, OpenMP, 20 threads",
+  "preset": "balanced",
+  "quality": 78,
+  "audio": "GHAC1 hq",
+  "test_a": {
+    "source": {"width": 960, "height": 544, "fps": 30.0, "duration_seconds": 127.4, "bytes": 25857237},
+    "ghvc6": {"bytes": 707814713, "mib": 675.025, "encode_fps": 322.679, "decode_fps": 209.2, "pipe_fps": 210.6, "psnr_db": 50.163155, "ssim": 0.995773, "verified": true},
+    "ghvc7": {"bytes": 464780378, "mib": 443.249, "encode_fps": 162.510, "decode_fps": 313.3, "pipe_fps": 301.4, "psnr_db": 45.688338, "ssim": 0.985877, "verified": true},
+    "ghvc7_change": {"bytes": -243034335, "size_percent": -34.3359, "encode_fps_percent": -49.6373, "decode_fps_percent": 49.7610, "psnr_db": -4.474817, "ssim": -0.009896}
+  },
+  "test_b": {
+    "source": {"width": 1920, "height": 1080, "fps": 30.0, "duration_seconds": 104.11805, "bytes": 38589170},
+    "ghvc6": {"bytes": 1415922124, "mib": 1350.329, "encode_fps": 100.039, "decode_fps": 82.8, "pipe_fps": 83.3, "psnr_db": 48.374437, "ssim": 0.995662, "verified": true, "full_playback_freeze": false},
+    "ghvc7": {"bytes": 950228012, "mib": 906.208, "encode_fps": 48.231, "decode_fps": 83.8, "pipe_fps": 83.5, "psnr_db": 46.893747, "ssim": 0.991389, "verified": true, "full_playback_freeze": false},
+    "ghvc7_change": {"bytes": -465694112, "size_percent": -32.8898, "encode_fps_percent": -51.7878, "decode_fps_percent": 1.2077, "psnr_db": -1.480690, "ssim": -0.004273}
+  },
+  "playback_fault_test": {
+    "valid_two_second_file_clean_eof_seconds": 2.62,
+    "corrupt_first_frame_crc_chain_stop_seconds": 0.26,
+    "audio_continued_after_video_fatal": false
+  },
+  "not_captured": ["peak memory", "CPU utilization", "automatic dropped-frame count"]
+}

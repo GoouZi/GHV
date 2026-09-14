@@ -21,7 +21,7 @@ def parse_progress(line: str):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('GHV Studio 0.6')
+        self.title('GHV Studio 0.7')
         self.geometry('860x650')
         self.minsize(760, 560)
         self.infile = tk.StringVar()
@@ -47,7 +47,7 @@ class App(tk.Tk):
         ttk.Button(top, text='Browse…', command=self.pick_output).grid(row=3, column=1)
         top.columnconfigure(0, weight=1)
 
-        opt = ttk.LabelFrame(self, text='GHVC6 encoding')
+        opt = ttk.LabelFrame(self, text='GHVC7 encoding')
         opt.pack(fill='x', **pad)
         ttk.Label(opt, text='Preset').grid(row=0, column=0, sticky='w', padx=8, pady=8)
         ttk.Combobox(opt, textvariable=self.preset, values=['veryfast', 'fast', 'compact', 'balanced', 'quality'], state='readonly', width=14).grid(row=0, column=1, sticky='w', padx=8, pady=8)
@@ -84,7 +84,7 @@ class App(tk.Tk):
         ttk.Label(stat, textvariable=self.speed).pack(side='right')
         self.log = tk.Text(self, height=18, wrap='word')
         self.log.pack(fill='both', expand=True, padx=10, pady=8)
-        self.log.insert('end', 'GHV 0.6 — GHVC6 HD pipeline, faster native codec, buffered playback, Rice + zero-run compression\n')
+        self.log.insert('end', 'GHV 0.7 — GHVC7 8x8 transform compression, native parallel decode, monitored A/V playback\n')
         self.log.insert('end', 'Native C++ encoder/decoder is strongly recommended; Python remains a compatibility path.\n')
 
     def pick_input(self):

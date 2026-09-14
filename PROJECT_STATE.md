@@ -8,22 +8,23 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
-- Current development release: **GHV 0.6 / GHA 0.2**
-- Current native video codec: **GHVC6**
+- Current development release: **GHV 0.7 / GHA 0.2**
+- Current native video codec: **GHVC7** (GHVC4/5/6 remain decodable; GHVC6 remains encodable with `--codec 6`)
 - Current audio codec: **GHAC1**
 - License: MIT
 - Legacy project names GVID / GAUD are retired.
 
 ## User real-world benchmark history
 
-Same reference MV, 1080p30:
+Test A reference MV, 960x544/30:
 
 - MP4: 24.6 MB
 - OGV: 45.2 MB
 - early GVID: 1.41 GB
 - GHV 0.4: 927 MB
 - GHV 0.5: **819 MB**
-- GHV 0.6: waiting for user retest
+- GHV 0.6: **675.025 MiB** in the 2026-09-14 fixed-video rerun
+- GHV 0.7 / GHVC7: **443.249 MiB**
 
 User feedback on 0.5:
 
@@ -34,7 +35,26 @@ User feedback on 0.5:
 
 This strongly points to HD decoder/presentation throughput in addition to compression inefficiency.
 
-## GHV 0.6 architecture
+Test B is a separate 1920x1080/30 performance and playback test. Do not mix
+its values with Test A. The 2026-09-14 outputs were 1350.329 MiB (GHVC6) and
+906.208 MiB (GHVC7).
+
+## GHV 0.7 architecture
+
+GHVC7:
+
+- native 8x8 sequency-ordered integer Walsh-Hadamard transform;
+- quality/frequency/chroma-aware scalar quantization;
+- I-frame DC, vertical, and horizontal block predictors selected by coded cost;
+- same-position closed-loop P prediction and zero-coefficient skip blocks;
+- 3-bit packed block descriptors;
+- zig-zag scan, trailing-zero removal, zero-run and signed varint levels;
+- sampled-source Repeat detection and existing scene/keyframe policy;
+- OpenMP P-block encode and decode with a scalar fallback;
+- codec id/container minor version 7; `GTC7` frame payloads.
+
+GHVC7's first profile does not yet write motion vectors. The existing GPM6
+implementation is retained in GHVC6 for continued research.
 
 GHVC6:
 
@@ -54,7 +74,7 @@ Important: local motion exists, but normal speed presets currently use range 0. 
 
 Playback:
 
-- native `ghvdecode` supports GHVC4/5/6;
+- native `ghvdecode` supports GHVC4/5/6/7;
 - OpenMP decode where available;
 - producer/consumer frame queue;
 - startup prebuffer (about half of configured queue);
@@ -64,64 +84,52 @@ Playback:
 - Auto playback buffer targets ~64 MiB decoded YUV (8–32 frames);
 - native direct mux path removes Python from per-frame packed-video writes;
 - zero-motion P fast path avoids motion-grid overhead for normal presets.
+- player monitors decoder, mux, and ffplay together; fatal video failure stops
+  the complete A/V chain instead of allowing audio to continue alone.
 
 Tools:
 
 - `ghvverify.py`: complete decode + CRC verification;
 - `ghvdoctor.py`: measures decoder fps **and decoder→FFmpeg pipe** realtime headroom;
-- `ghvbench.py`: repeatable encode/verify benchmark;
+- `ghvbench.py`: repeatable encode/verify/decode/quality benchmark with optional JSON report;
 - `ghvinfo.py`: format inspection;
 - `ghvrepair.py`: rebuilds the frame index from intact VFRM records.
 
-## Internal 1080p benchmark
+## Fixed real-video benchmark (2026-09-14)
 
-Development machine, 1920x1080, 30 fps, 180 frames, no audio:
+Balanced q78, GHAC1 HQ audio, native CRC verification:
 
-- GHV 0.5 / GHVC4: 40.68 MiB, 32.48 native encode fps.
-- GHV 0.6 / GHVC6 Balanced: 37.31 MiB, 38.36 native encode fps.
-- 0.6 size improvement in this test: ~8.3%.
-- 0.6 encoder improvement: ~18%.
-- full conversion wall time: ~6.25 s -> ~5.43 s.
-- 0.6 native decoder after OpenMP build: roughly 94–100 fps.
-- 1080p30 raw YUV420 pipe bandwidth: ~89 MiB/s.
-- measured Balanced reconstructed quality on development tests is around the high-40s dB PSNR, but quality is content-dependent.
-- later 90-frame 1080p30 direct-mux/zero-motion microbenchmark: ~48.8 core encode fps, ~48.7 end-to-end video-only fps, ~151 native decode fps, ~133 decoder→FFmpeg pipe fps.
+- Test A (960x544): GHVC6 675.025 MiB -> GHVC7 **443.249 MiB (-34.34%)**.
+- Test A encode: 322.68 -> 162.51 fps; decode: 209.2 -> **313.3 fps**.
+- Test A quality: 50.163 -> 45.688 dB PSNR; 0.995773 -> 0.985877 SSIM.
+- Test B (1920x1080): GHVC6 1350.329 MiB -> GHVC7 **906.208 MiB (-32.89%)**.
+- Test B encode: 100.04 -> 48.23 fps; decode: 82.8 -> **83.8 fps**.
+- Test B pipe: 83.3 -> 83.5 fps (about 2.78x realtime).
+- Test B quality: 48.374 -> 46.894 dB PSNR; 0.995662 -> 0.991389 SSIM.
+- Both Test B files completed full 104.118 s native A/V playback without a
+  freeze on this machine. A deliberately corrupt first-frame CRC stopped the
+  complete A/V chain in 0.26 s.
 
 Do not present these values as universal hardware performance.
 
-## Immediate next user test
+See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` and the adjacent JSON report.
 
-Use the exact MV that produced 819 MB in 0.5:
+## Reproduce
 
 ```text
-python ghvenc.py MV.mp4 MV_v06.ghv --preset balanced
-python ghvverify.py MV_v06.ghv
-python ghvdoctor.py MV_v06.ghv
-python ghvplay.py MV_v06.ghv --engine native   # Auto buffer
+python ghvbench.py input.mp4 output.ghv --codec 7 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvdoctor.py output.ghv --frames 999999 --verify
+python ghvplay.py output.ghv --engine native
 ```
-
-Record:
-
-- final file size;
-- average conversion fps;
-- Verify PASS/FAIL;
-- Doctor decode fps/headroom;
-- whether visual freeze still occurs;
-- whether 16 vs 24 buffer changes stutter.
-
-Also retest the separate high-resolution file that previously froze while audio continued.
 
 ## Next major milestone
 
-Pixel-domain residual packing is reaching diminishing returns. The next compression milestone should be transform-domain **GHVC7**, not another long cycle of nibble/RLE tuning:
+GHVC7 achieved the first architecture-level reduction and the `<500 MiB` Test A
+stage, but remains far from OGV/Theora. Highest-value next work:
 
-1. 8x8 integer transform (start with separable integer/Hadamard-like prototype, measure versus DCT-like transform);
-2. coefficient quantization by quality/frequency;
-3. zig-zag ordering;
-4. zero-run / run-level coding;
-5. entropy coding selected by measurements;
-6. local motion chosen by actual coded-cost estimate, not SAD alone;
-7. bounded multi-threaded encoder pipeline;
-8. native decoder library API for Godot/game integration.
-
-The first hard external size target remains OGV/Theora (45.2 MB on the reference MV).
+1. coded-cost local motion and motion-vector prediction in a versioned GHVC7 profile;
+2. replace varint levels with measured Rice/canonical Huffman/range-style coding;
+3. reduce encoder allocations and parallelize/pipe I-frame work;
+4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;
+5. expose `libghv` decoder/player APIs and remove the long-term ffplay dependency;
+6. capture peak memory, CPU utilization, and rendered dropped-frame/A/V drift metrics.
