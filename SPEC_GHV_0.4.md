@@ -1,0 +1,79 @@
+# GHV 0.4 draft specification
+
+GHV = **Goou_Zi High-efficiency Video**. Standard extension: `.ghv`.
+
+This is an experimental, open media container. GHV 0.4 uses the custom GHVC3 video codec and may embed custom GHAC1 audio. FFmpeg is used by the reference *converter* only to decode source formats; GHVC3/GHAC1 themselves do not wrap an existing video/audio codec.
+
+## File layout
+
+1. 96-byte GHV header (`GHV1` magic)
+2. video frame chunks (`VFRM`)
+3. optional embedded audio chunk (`AUD0`, codec id 4 = GHAC1)
+4. frame index (`INDX`)
+
+All multibyte integers are little-endian.
+
+## Header
+
+The reference implementation uses:
+
+`<4sBBHIIIIIIIIIHHQQQQQ8s>`
+
+Important fields are width, height, rational frame rate, frame count, maximum keyframe interval, quality, audio metadata, frame/audio/index offsets, and duration in microseconds.
+
+## Video frame record
+
+The fixed 32-byte frame record is:
+
+`<4sIQBBHIII>`
+
+Fields: magic, frame number, PTS in microseconds, frame type, codec id, 16-bit codec metadata, raw YUV420 size, payload size, CRC32.
+
+For GHVC3, codec id is `3`. The 16-bit metadata stores signed 8-bit `(dx,dy)` global motion in the low/high byte.
+
+Frame types:
+
+- `0`: I frame; horizontal spatial prediction.
+- `1`: P frame; previous decoded frame + integer global motion prediction.
+- `2`: repeat frame; payload is empty and the previous decoded frame is reused.
+
+## GHVC3 image representation
+
+Decoded pictures are 8-bit planar YUV420p. Before prediction the encoder may scalar-quantize Y and chroma according to the quality setting. The decoded/reconstructed picture is the prediction plus the transmitted residual; subsequent P frames predict from that reconstructed picture.
+
+### P-frame motion
+
+For `(dx,dy)`, current luma pixel `(x,y)` predicts from previous `(x-dx,y-dy)`. Edges clamp to the nearest valid source pixel. Chroma uses `(dx/2,dy/2)` rounded toward zero.
+
+The reference encoder performs a cheap sampled global search. This is deliberately simpler than modern block motion compensation and is expected to change in later experimental codec revisions.
+
+## GBP3 residual coding
+
+Residual samples are signed 8-bit modular differences, zig-zag mapped to unsigned 0..255 and divided into 64-sample blocks.
+
+Payload header: `<4sHHII>` with magic `GBP3`, block size 64, flags 0, original byte count, and block count.
+
+Two 4-bit descriptors are packed per byte. Descriptor modes:
+
+- `0`: all-zero block, no payload.
+- `1..8`: bit width used for all 64 zig-zag values. A mode-W block occupies exactly `8*W` bytes.
+- `9`: sparse block. Payload is an 8-byte 64-bit nonzero bitmap followed by one byte for each nonzero zig-zag value.
+- `10..15`: reserved.
+
+Fixed-width payloads are stored grouped by width 1 through 8, preserving block order within each group. Sparse records follow, preserving sparse-block order. The descriptors reconstruct original block positions.
+
+## Audio
+
+Embedded audio codec id `4` contains a complete GHA/GHAC1 byte stream. See `SPEC_GHA_0.2.md`.
+
+## Index and seeking
+
+`INDX` stores every video frame file offset and its frame type. A decoder seeking into the stream walks backward to the nearest I frame, decodes forward, then begins presentation at the requested frame.
+
+## Integrity and recovery
+
+Each reconstructed video frame has a CRC32. The reference player can verify CRCs and, in non-strict mode, recover from a damaged frame by jumping to the next indexed I frame.
+
+## Status
+
+GHV 0.4 is an experimental bitstream. Backward compatibility is not promised before 1.0.

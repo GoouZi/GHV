@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+native/bin/*.exe
+native/bin/ghvcore
+native/bin/ghvdecode
+releases/*.zip
+benchmarks/output/
