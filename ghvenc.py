@@ -216,7 +216,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
             pass
 
 def main():
-    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6 or GHVC7')
+    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6, GHVC7, or GHVC8')
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
@@ -227,7 +227,7 @@ def main():
     ap.add_argument('--audio-quality', choices=['hq', 'compact'], default='hq')
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
     ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
-    ap.add_argument('--codec', type=int, choices=[6, 7], default=7, help='video codec version (default: GHVC7)')
+    ap.add_argument('--codec', type=int, choices=[6, 7, 8], default=8, help='video codec version (default: GHVC8)')
     ap.add_argument('--no-audio', action='store_true')
     ap.add_argument('--audio-rate', type=int, default=0, help='0 = preserve source sample rate')
     ap.add_argument('--ffmpeg')
@@ -242,6 +242,8 @@ def main():
     if args.codec == 7 and motion_range:
         print('[GHV] GHVC7 profile 0 has no motion-vector syntax yet; ignoring motion range.', flush=True)
         motion_range = 0
+    if args.codec == 8 and args.motion_range is None:
+        motion_range = 4
 
     ffmpeg = find_tool('ffmpeg', args.ffmpeg)
     ffprobe = find_tool('ffprobe', args.ffprobe)
@@ -275,8 +277,8 @@ def main():
     if args.native == 'on' and not native_core:
         raise SystemExit(f'Native GHVC{args.codec} core requested but not built. Run build_native_windows.bat.')
     use_native = bool(native_core)
-    if args.codec == 7 and not use_native:
-        raise SystemExit('GHVC7 requires the native C++ core. Build native/ghvcore first.')
+    if args.codec >= 7 and not use_native:
+        raise SystemExit(f'GHVC{args.codec} requires the native C++ core. Build native/ghvcore first.')
     engine = 'Native C++' if use_native else 'Fast NumPy'
     print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC{args.codec} | {args.preset} | engine={engine}', flush=True)
     print(f'[GHV] quality={quality} keyint={keyint} motion=±{motion_range} scene={scene_threshold:g} threads={args.threads or "auto"}', flush=True)

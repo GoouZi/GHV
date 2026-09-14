@@ -1,11 +1,29 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, os, re, shutil, struct, subprocess, sys, tempfile, time
+import argparse, json, os, re, shutil, struct, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
 
 ROOT = Path(__file__).resolve().parent
 RESULT_RE = re.compile(r'RESULT\s+frames=(\d+)\s+duration=([0-9.]+)\s+size_mib=([0-9.]+)\s+elapsed=([0-9.]+)\s+avg_fps=([0-9.]+)')
+
+
+class PeakMemory:
+    def __init__(self, pid: int):
+        self.pid=pid;self.peak=0;self.stop=threading.Event();self.thread=None
+    def start(self):
+        try: import psutil
+        except ImportError:return self
+        def worker():
+            root=psutil.Process(self.pid)
+            while not self.stop.wait(.05):
+                try:self.peak=max(self.peak,sum(p.memory_info().rss for p in [root]+root.children(recursive=True) if p.is_running()))
+                except (psutil.NoSuchProcess,psutil.AccessDenied):pass
+        self.thread=threading.Thread(target=worker,daemon=True);self.thread.start();return self
+    def finish(self):
+        self.stop.set()
+        if self.thread:self.thread.join(timeout=1)
+        return self.peak or None
 
 
 def probe_source(path: Path):
@@ -35,10 +53,11 @@ def measure_decode(path: Path,frames: int):
     dec=ROOT/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
     if not dec.is_file():return None
     h,_=inspect_output(path);n=h.frame_count if frames==0 else max(1,min(h.frame_count,frames))
-    p=subprocess.run([str(dec),str(path),'--no-output','--verify','--frames',str(n)],
+    p=subprocess.Popen([str(dec),str(path),'--no-output','--verify','--frames',str(n)],
                      stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
-    if p.returncode:return None
-    m=re.search(r'fps=([0-9.]+)',p.stderr);return float(m.group(1)) if m else None
+    mem=PeakMemory(p.pid).start();_,err=p.communicate();peak=mem.finish()
+    if p.returncode:return None,peak
+    m=re.search(r'fps=([0-9.]+)',err);return (float(m.group(1)) if m else None),peak
 
 
 def measure_quality(source: Path,path: Path):
@@ -68,7 +87,7 @@ def main():
     ap.add_argument('input')
     ap.add_argument('output', nargs='?')
     ap.add_argument('--preset', choices=['veryfast','fast','compact','balanced','quality'], default='balanced')
-    ap.add_argument('--codec', type=int, choices=[6, 7], default=7)
+    ap.add_argument('--codec', type=int, choices=[6, 7, 8], default=8)
     ap.add_argument('--audio-quality', choices=['hq','compact'], default='hq')
     ap.add_argument('--threads', type=int, default=0)
     ap.add_argument('--decode-frames',type=int,default=180,help='decode benchmark frames; 0 = full file')
@@ -97,6 +116,7 @@ def main():
     t0 = time.perf_counter(); lines=[]
     p = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          text=True, encoding='utf-8', errors='replace', bufsize=1)
+    encode_mem=PeakMemory(p.pid).start()
     assert p.stdout is not None
     for line in p.stdout:
         lines.append(line)
@@ -106,7 +126,7 @@ def main():
             # runner never aborts merely while relaying progress text.
             enc = sys.stdout.encoding or 'utf-8'
             sys.stdout.write(line.encode(enc, 'replace').decode(enc, 'replace'))
-    rc = p.wait(); wall=time.perf_counter()-t0
+    rc = p.wait(); encode_peak=encode_mem.finish();wall=time.perf_counter()-t0
     if rc != 0:
         raise SystemExit(rc)
 
@@ -125,13 +145,13 @@ def main():
         'input_bytes': in_size, 'output_bytes': out_size,
         'size_ratio_output_over_input': (out_size / in_size) if in_size else None,
         'size_change_percent': ((out_size / in_size - 1.0) * 100.0) if in_size else None,
-        'wall_seconds': wall, 'verified': verified,
+        'wall_seconds': wall, 'verified': verified, 'encode_peak_memory_bytes': encode_peak,
         'output_bitrate_bps': (out_size*8/(h.duration_us/1e6)) if h.duration_us else None,
     }
     if result:
         report.update(frames=int(result.group(1)), duration_seconds=float(result.group(2)),
                       encoder_elapsed_seconds=float(result.group(4)), avg_fps=float(result.group(5)))
-    report['decode_fps']=measure_decode(out,args.decode_frames)
+    report['decode_fps'],report['decode_peak_memory_bytes']=measure_decode(out,args.decode_frames)
     if args.quality_metrics:report.update(measure_quality(src,out))
     if args.report_json:
         rp=Path(args.report_json);rp.parent.mkdir(parents=True,exist_ok=True)
@@ -145,7 +165,9 @@ def main():
         print(f'Ratio : {out_size/in_size:.3f}x input' if in_size else 'Ratio : n/a')
         print(f'Wall  : {wall:.3f}s')
         if result: print(f'Encode: {float(result.group(5)):.2f} FPS average')
+        if encode_peak: print(f'Encode peak memory: {encode_peak/(1024*1024):.1f} MiB')
         if report['decode_fps'] is not None: print(f'Decode: {report["decode_fps"]:.2f} FPS')
+        if report['decode_peak_memory_bytes']: print(f'Decode peak memory: {report["decode_peak_memory_bytes"]/(1024*1024):.1f} MiB')
         if 'psnr_db' in report: print(f'Quality: PSNR {report["psnr_db"]:.3f} dB | SSIM {report["ssim"]:.6f}')
         print(f'Verify: {"PASS" if verified else "FAIL"}')
         if args.report_json: print(f'JSON  : {Path(args.report_json).resolve()}')

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 #include "ghvcodec7.h"
+#include "ghvcodec8.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -251,7 +252,7 @@ static std::vector<uint8_t> zrun_wrap(const std::vector<uint8_t>& in){
 
 int main(int argc,char** argv){
     if(argc<9){
-        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN] [--codec 6|7]\n";
+        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN] [--codec 6|7|8]\n";
         return 2;
     }
     std::ios::sync_with_stdio(false);std::cin.tie(nullptr);
@@ -271,7 +272,7 @@ int main(int argc,char** argv){
         else if(a=="--codec"&&ai+1<argc)codec=std::stoi(argv[++ai]);
         else {std::cerr<<"invalid option: "<<a<<"\n";return 2;}
     }
-    if((codec!=6&&codec!=7)||(ghv_mode&&(fps_num==0||fps_den==0||outpath=="-"))){std::cerr<<"invalid codec/--ghv arguments\n";return 2;}
+    if((codec!=6&&codec!=7&&codec!=8)||(ghv_mode&&(fps_num==0||fps_den==0||outpath=="-"))){std::cerr<<"invalid codec/--ghv arguments\n";return 2;}
     if((w&1)||(h&1)||w<=0||h<=0){std::cerr<<"invalid dimensions\n";return 2;}
     size_t frame_size=size_t(w)*h*3/2;
 
@@ -286,7 +287,7 @@ int main(int argc,char** argv){
     if(ghv_mode){
         char zero[96]={0}; out.write(zero,96);
     }else{
-        out.write(codec==7?"GHS7":"GHS6",4);write_u32(out,uint32_t(codec));write_u32(out,uint32_t(w));write_u32(out,uint32_t(h));write_u32(out,uint32_t(frame_size));
+        out.write(codec==8?"GHS8":(codec==7?"GHS7":"GHS6"),4);write_u32(out,uint32_t(codec));write_u32(out,uint32_t(w));write_u32(out,uint32_t(h));write_u32(out,uint32_t(frame_size));
     }
 
     init_crc();
@@ -313,7 +314,10 @@ int main(int argc,char** argv){
             type=2;repeats++;recon=prev;
         }else if(!force_i&&sc<scene_threshold){
             type=1;pframes++;
-            if(codec==7){
+            if(codec==8){
+                packed=ghvc8::encode(frame,prev,w,h,quality,motion_range,recon,&zero_blocks,&mv_nonzero);
+                mv_total+=uint64_t((w+15)/16)*uint64_t((h+15)/16);
+            }else if(codec==7){
                 packed=ghvc7::encode(frame,&prev,w,h,quality,false,recon,&zero_blocks);
             }else if(motion_range<=0){
                 // Common fast path for Balanced/Fast: same-position prediction.
@@ -329,7 +333,7 @@ int main(int argc,char** argv){
             }
         }else{
             type=0;iframes++;
-            if(codec==7)packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);
+            if(codec==8||codec==7)packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);
             else {intra_residual(frame,res,w,h);packed=bitpack6(res,false);recon=frame;}
         }
         if(type!=2&&codec==6)packed=zrun_wrap(packed);

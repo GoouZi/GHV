@@ -24,7 +24,7 @@ def scan_frames(path: Path):
             magic, no, pts, typ, codec, meta, raw_size, packed_size, checksum = vals
             if magic != VFRM:
                 break
-            if typ not in (0, 1, 2) or codec not in (3, 4, 5, 6, 7):
+            if typ not in (0, 1, 2) or codec not in (3, 4, 5, 6, 7, 8):
                 break
             if no != expected_no or packed_size > MAX_PACKED:
                 break
