@@ -145,7 +145,22 @@ def play_native(args, h, fps, target_frame, wav_path):
         assert mux.stdout is not None
         player = subprocess.Popen(play_cmd, stdin=mux.stdout, bufsize=16 * 1024 * 1024)
         mux.stdout.close()
-        prc = player.wait()
+        # Do not wait only for ffplay: if video decode dies while the WAV input
+        # is still healthy, FFmpeg can otherwise keep feeding audio and leave a
+        # frozen last picture on screen.  A fatal decoder/mux exit tears down
+        # the whole presentation chain immediately.
+        fatal = None
+        while True:
+            prc = player.poll(); drc_now = dec.poll(); mrc_now = mux.poll()
+            if prc is not None:
+                break
+            if drc_now is not None and drc_now != 0:
+                derr.seek(0); fatal = f'Native GHVC decoder failed (exit {drc_now}):\n' + derr.read().decode('utf-8', 'replace')
+                player.terminate(); mux.terminate(); prc = player.wait(timeout=3); break
+            if mrc_now is not None and mrc_now != 0:
+                merr.seek(0); fatal = f'FFmpeg presentation mux failed (exit {mrc_now}):\n' + merr.read().decode('utf-8', 'replace')
+                player.terminate(); dec.terminate(); prc = player.wait(timeout=3); break
+            time.sleep(.05)
         if mux.poll() is None:
             mux.terminate()
         mrc = mux.wait(timeout=3) if mux.poll() is None else mux.returncode
@@ -154,6 +169,8 @@ def play_native(args, h, fps, target_frame, wav_path):
         drc = dec.wait(timeout=3) if dec.poll() is None else dec.returncode
         if prc not in (0, 255):
             print(f'[GHV] ffplay exited with {prc}')
+        if fatal:
+            raise RuntimeError(fatal)
         if drc not in (0, -15, 1):
             derr.seek(0); msg = derr.read().decode('utf-8', 'replace')
             raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n{msg}')
@@ -218,7 +235,7 @@ def play_python(args, h, idx, fps, target, start_frame, worker_offset, worker_pr
             audio_proc = subprocess.Popen([ffplay, '-nodisp', '-autoexit', '-loglevel', 'quiet', '-ss', f'{args.start:.6f}', wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     print('[GHV] Playback engine: Python compatibility renderer')
-    win = 'GHV 0.6 Player - Q/ESC to quit'
+    win = 'GHV Player - Q/ESC to quit'
     cv2.namedWindow(win, cv2.WINDOW_NORMAL); cv2.resizeWindow(win, h.width, h.height)
     base = time.perf_counter(); target_pts_us = int(args.start * 1_000_000); dropped=shown=starves=0
     try:
@@ -249,7 +266,7 @@ def play_python(args, h, idx, fps, target, start_frame, worker_offset, worker_pr
 
 
 def main():
-    ap=argparse.ArgumentParser(description='GHV 0.6 reference player')
+    ap=argparse.ArgumentParser(description='GHV reference player')
     ap.add_argument('input'); ap.add_argument('--info',action='store_true'); ap.add_argument('--start',type=float,default=0.0)
     ap.add_argument('--no-audio',action='store_true'); ap.add_argument('--verify',action='store_true'); ap.add_argument('--strict',action='store_true')
     ap.add_argument('--buffer',type=int,default=0,help='decoded-frame prebuffer; 0 = automatic based on resolution')
@@ -275,7 +292,7 @@ def main():
                 tmp=tempfile.NamedTemporaryFile(prefix='ghv_',suffix='.wav',delete=False); wav_path=tmp.name; tmp.close(); load_audio_to_wav(f,h,wav_path)
             # Native playback does not need Python to pre-decode the seek path.
 
-        native_ok=(codec in (4,5,6) and find_native_decoder() and find_tool('ffmpeg',args.ffmpeg) and find_tool('ffplay',args.ffplay))
+        native_ok=(codec in (4,5,6,7) and find_native_decoder() and find_tool('ffmpeg',args.ffmpeg) and find_tool('ffplay',args.ffplay))
         if args.engine=='native' and not native_ok:
             raise SystemExit('Native playback requested but ghvdecode + FFmpeg + ffplay are not all available.')
         if args.engine in ('auto','native') and native_ok:
