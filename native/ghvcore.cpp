@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "ghvcodec7.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -18,8 +19,7 @@
 #include <io.h>
 #endif
 
-// GHVC6 native encoder core (GHV 0.6).
-// Reads raw YUV420p on stdin and emits a GHS6 record stream.
+// GHVC6/GHVC7 native encoder core.
 // Pure in-tree codec: no libav, zlib, VPx, x264, etc.
 //
 // 0.6 speed work:
@@ -70,6 +70,16 @@ static uint32_t crc32(const uint8_t* p,size_t n){uint32_t c=0xFFFFFFFFu;for(size
 static double scene_score(const std::vector<uint8_t>& a,const std::vector<uint8_t>& b,int w,int h){
     uint64_t sum=0,count=0; for(int y=0;y<h;y+=16){size_t row=size_t(y)*w;for(int x=0;x<w;x+=16){sum+=uint64_t(std::abs(int(a[row+x])-int(b[row+x])));count++;}}
     return count?double(sum)/double(count):0.0;
+}
+
+static double source_repeat_score(const std::vector<uint8_t>& frame,const std::vector<uint8_t>& samples,int w,int h){
+    if(samples.empty())return 1e30;uint64_t sum=0;size_t n=0;
+    for(int y=0;y<h;y+=16)for(int x=0;x<w;x+=16){sum+=uint64_t(std::abs(int(frame[size_t(y)*w+x])-int(samples[n++])));}
+    return n?double(sum)/double(n):1e30;
+}
+static void capture_source_samples(const std::vector<uint8_t>& frame,std::vector<uint8_t>& samples,int w,int h){
+    samples.clear();samples.reserve(size_t((w+15)/16)*size_t((h+15)/16));
+    for(int y=0;y<h;y+=16)for(int x=0;x<w;x+=16)samples.push_back(frame[size_t(y)*w+x]);
 }
 
 static double motion_score(const std::vector<uint8_t>& cur,const std::vector<uint8_t>& old,int w,int h,int dx,int dy,int search){
@@ -241,7 +251,7 @@ static std::vector<uint8_t> zrun_wrap(const std::vector<uint8_t>& in){
 
 int main(int argc,char** argv){
     if(argc<9){
-        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN]\n";
+        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN] [--codec 6|7]\n";
         return 2;
     }
     std::ios::sync_with_stdio(false);std::cin.tie(nullptr);
@@ -253,14 +263,15 @@ int main(int argc,char** argv){
     int motion_range=std::clamp(std::stoi(argv[6]),0,31);
     std::string outpath=argv[7];
     uint64_t expected=std::stoull(argv[8]);
-    bool ghv_mode=false;
+    bool ghv_mode=false;int codec=6;
     uint32_t fps_num=30,fps_den=1;
-    if(argc>=12 && std::string(argv[9])=="--ghv"){
-        ghv_mode=true;
-        fps_num=uint32_t(std::stoul(argv[10]));
-        fps_den=uint32_t(std::stoul(argv[11]));
-        if(fps_num==0||fps_den==0||outpath=="-"){std::cerr<<"invalid --ghv arguments\n";return 2;}
+    for(int ai=9;ai<argc;ai++){
+        std::string a=argv[ai];
+        if(a=="--ghv"&&ai+2<argc){ghv_mode=true;fps_num=uint32_t(std::stoul(argv[++ai]));fps_den=uint32_t(std::stoul(argv[++ai]));}
+        else if(a=="--codec"&&ai+1<argc)codec=std::stoi(argv[++ai]);
+        else {std::cerr<<"invalid option: "<<a<<"\n";return 2;}
     }
+    if((codec!=6&&codec!=7)||(ghv_mode&&(fps_num==0||fps_den==0||outpath=="-"))){std::cerr<<"invalid codec/--ghv arguments\n";return 2;}
     if((w&1)||(h&1)||w<=0||h<=0){std::cerr<<"invalid dimensions\n";return 2;}
     size_t frame_size=size_t(w)*h*3/2;
 
@@ -275,14 +286,14 @@ int main(int argc,char** argv){
     if(ghv_mode){
         char zero[96]={0}; out.write(zero,96);
     }else{
-        out.write("GHS6",4);write_u32(out,6);write_u32(out,uint32_t(w));write_u32(out,uint32_t(h));write_u32(out,uint32_t(frame_size));
+        out.write(codec==7?"GHS7":"GHS6",4);write_u32(out,uint32_t(codec));write_u32(out,uint32_t(w));write_u32(out,uint32_t(h));write_u32(out,uint32_t(frame_size));
     }
 
     init_crc();
-    std::vector<uint8_t> frame(frame_size),prev,res,recon;
+    std::vector<uint8_t> frame(frame_size),prev,res,recon,source_samples;
     std::vector<std::pair<uint64_t,uint8_t>> index;
     if(ghv_mode && expected>0 && expected<100000000ull) index.reserve(size_t(expected));
-    uint64_t count=0,repeats=0,pframes=0,iframes=0,mv_nonzero=0,mv_total=0;
+    uint64_t count=0,repeats=0,pframes=0,iframes=0,mv_nonzero=0,mv_total=0,zero_blocks=0;
     auto start=std::chrono::steady_clock::now();
     const int dz=residual_deadzone(quality),rstep=residual_step(quality);
     const double rpt=repeat_threshold(quality);
@@ -293,15 +304,18 @@ int main(int argc,char** argv){
         if(got==0)break;
         if(size_t(got)!=frame_size){std::cerr<<"truncated raw frame\n";return 4;}
 
-        quantize(frame,w,h,quality);
+        if(codec==6)quantize(frame,w,h,quality);
         bool force_i=(count%uint64_t(keyint)==0)||prev.empty();
         uint8_t type=0;int dx=0,dy=0;std::vector<uint8_t> packed;
         double sc=prev.empty()?1e30:scene_score(frame,prev,w,h);
-        if(!force_i&&sc<=rpt){
+        double repeat_sc=source_repeat_score(frame,source_samples,w,h);
+        if(!force_i&&repeat_sc<=rpt){
             type=2;repeats++;recon=prev;
         }else if(!force_i&&sc<scene_threshold){
             type=1;pframes++;
-            if(motion_range<=0){
+            if(codec==7){
+                packed=ghvc7::encode(frame,&prev,w,h,quality,false,recon,&zero_blocks);
+            }else if(motion_range<=0){
                 // Common fast path for Balanced/Fast: same-position prediction.
                 // Avoid allocating/scanning a full motion grid when every vector is zero.
                 zero_motion_residual(frame,prev,res,recon,dz,rstep);
@@ -315,9 +329,11 @@ int main(int argc,char** argv){
             }
         }else{
             type=0;iframes++;
-            intra_residual(frame,res,w,h);packed=bitpack6(res,false);recon=frame;
+            if(codec==7)packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);
+            else {intra_residual(frame,res,w,h);packed=bitpack6(res,false);recon=frame;}
         }
-        if(type!=2)packed=zrun_wrap(packed);
+        if(type!=2&&codec==6)packed=zrun_wrap(packed);
+        capture_source_samples(frame,source_samples,w,h);
         uint32_t chk=crc32(recon.data(),recon.size());
 
         if(ghv_mode){
@@ -327,7 +343,7 @@ int main(int argc,char** argv){
             write_u32(out,uint32_t(count));
             uint64_t pts=(count*uint64_t(fps_den)*1000000ull)/uint64_t(fps_num);
             write_u64(out,pts);
-            out.put(char(type));out.put(char(6));write_u16(out,0);
+            out.put(char(type));out.put(char(codec));write_u16(out,0);
             write_u32(out,uint32_t(frame_size));write_u32(out,uint32_t(packed.size()));write_u32(out,chk);
         }else{
             out.put(char(type));out.put(char(int8_t(dx)));out.put(char(int8_t(dy)));out.put(0);
@@ -358,7 +374,7 @@ int main(int argc,char** argv){
         }
         uint64_t duration_us=count?(count*uint64_t(fps_den)*1000000ull)/uint64_t(fps_num):0;
         out.seekp(0,std::ios::beg);
-        out.write("GHV1",4);out.put(char(0));out.put(char(6));write_u16(out,96);
+        out.write("GHV1",4);out.put(char(0));out.put(char(codec));write_u16(out,96);
         write_u32(out,0);
         write_u32(out,uint32_t(w));write_u32(out,uint32_t(h));
         write_u32(out,fps_num);write_u32(out,fps_den);
@@ -375,14 +391,15 @@ int main(int argc,char** argv){
     out.flush();
 
     double sec=std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count();
-    std::cerr<<"GHVC6_RESULT threads="
+    std::cerr<<"GHVC"<<codec<<"_RESULT threads="
 #ifdef _OPENMP
     <<omp_get_max_threads()
 #else
     <<1
 #endif
     <<" frames="<<count<<" i="<<iframes<<" p="<<pframes<<" repeats="<<repeats
-    <<" deadzone="<<dz<<" rstep="<<rstep<<" mv_used="<<mv_nonzero<<"/"<<mv_total
+    <<" deadzone="<<(codec==6?dz:0)<<" rstep="<<(codec==6?rstep:0)<<" mv_used="<<mv_nonzero<<"/"<<mv_total
+    <<" zero_blocks="<<zero_blocks
     <<" elapsed="<<sec<<" fps="<<(count/std::max(sec,1e-6))
     <<" mode="<<(ghv_mode?"ghv-direct":"stream")<<"\n";
     return 0;

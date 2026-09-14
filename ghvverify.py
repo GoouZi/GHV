@@ -33,6 +33,7 @@ def verify_python(path: str):
             elif codec==5: y=decode5(typ,payload,prev,h.width,h.height,raw_size,dx,dy)
             elif codec==4: y=decode4(typ,payload,prev,h.width,h.height,raw_size,dx,dy)
             elif codec==3: y=decode3(typ,payload,prev,h.width,h.height,raw_size,dx,dy)
+            elif codec == 7: raise ValueError('GHVC7 Python reference decoder is not implemented; use the native verifier')
             else: raise ValueError(f'unsupported codec {codec} at frame {i}')
             if (binascii.crc32(y)&0xffffffff)!=checksum: raise ValueError(f'CRC mismatch at frame {i}')
             prev=y
@@ -51,7 +52,7 @@ def main():
             f.seek(idx[0][0]); rh=f.read(FRAME_SIZE)
             if len(rh)==FRAME_SIZE: codec=struct.unpack(FRAME_FMT,rh)[4]
     nd=native_decoder()
-    if not a.python and codec in (4,5,6) and nd:
+    if not a.python and codec in (4,5,6,7) and nd:
         t0=time.perf_counter()
         p=subprocess.run([nd,a.input,'--verify'],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
         sec=max(1e-6,time.perf_counter()-t0)

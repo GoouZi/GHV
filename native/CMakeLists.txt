@@ -17,3 +17,8 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(ghvdecode PRIVATE OpenMP::OpenMP_CXX)
 endif()
 set_target_properties(ghvcore ghvdecode PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+foreach(config Debug Release RelWithDebInfo MinSizeRel)
+  string(TOUPPER "${config}" config_upper)
+  set_target_properties(ghvcore ghvdecode PROPERTIES
+    "RUNTIME_OUTPUT_DIRECTORY_${config_upper}" "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+endforeach()

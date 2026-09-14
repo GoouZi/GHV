@@ -7,5 +7,7 @@ Thumbs.db
 native/bin/*.exe
 native/bin/ghvcore
 native/bin/ghvdecode
+native/build/
+native/bin/Release/
 releases/*.zip
 benchmarks/output/

@@ -160,8 +160,8 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
 def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: int, h: int,
                                quality: int, keyint: int, scene_threshold: float,
                                motion_range: int, est_frames: int, fps_num: int,
-                               fps_den: int, threads: int = 0) -> int:
-    """GHV 0.6 fast path: native core writes VFRM + INDX + header itself.
+                               fps_den: int, threads: int = 0, codec: int = 7) -> int:
+    """Native core writes VFRM + INDX + header itself.
 
     Python never receives packed video frames, which removes one full copy and
     thousands of per-frame struct/write calls on long 1080p encodes.
@@ -172,7 +172,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
     assert ff.stdout is not None
     cmd = [native_core, str(w), str(h), str(quality), str(keyint),
            str(scene_threshold), str(motion_range), str(out_path),
-           str(est_frames), '--ghv', str(fps_num), str(fps_den)]
+           str(est_frames), '--ghv', str(fps_num), str(fps_den), '--codec', str(codec)]
     env = os.environ.copy()
     if threads and threads > 0:
         env['OMP_NUM_THREADS'] = str(threads)
@@ -187,19 +187,19 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
             if line.startswith('GHV_PROGRESS '):
                 print('PROGRESS ' + line[len('GHV_PROGRESS '):], flush=True)
             elif line:
-                print('[GHV native6] ' + line, flush=True)
+                print(f'[GHV native{codec}] ' + line, flush=True)
         rc_core = core.wait()
         rc_ff = ff.wait()
         ff_err.seek(0)
         ferr = ff_err.read().decode('utf-8', 'replace')
         if rc_core != 0:
-            raise RuntimeError(f'Native GHVC6 direct encoder failed with exit {rc_core}')
+            raise RuntimeError(f'Native GHVC{codec} direct encoder failed with exit {rc_core}')
         if rc_ff != 0:
             raise RuntimeError('FFmpeg video decode failed:\n' + ferr)
         with open(out_path, 'rb') as vf:
             vh = read_header(vf)
             idx = read_index(vf, vh)
-        if vh.minor != 6 or vh.frame_count != len(idx):
+        if vh.minor != codec or vh.frame_count != len(idx):
             raise RuntimeError('native direct GHV header/index validation failed')
         return vh.frame_count
     finally:
@@ -216,7 +216,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
             pass
 
 def main():
-    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV 0.6 / GHVC6')
+    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6 or GHVC7')
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
@@ -227,6 +227,7 @@ def main():
     ap.add_argument('--audio-quality', choices=['hq', 'compact'], default='hq')
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
     ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
+    ap.add_argument('--codec', type=int, choices=[6, 7], default=7, help='video codec version (default: GHVC7)')
     ap.add_argument('--no-audio', action='store_true')
     ap.add_argument('--audio-rate', type=int, default=0, help='0 = preserve source sample rate')
     ap.add_argument('--ffmpeg')
@@ -238,6 +239,9 @@ def main():
     keyint = max(1, args.keyint if args.keyint is not None else pp['keyint'])
     motion_range = max(0, min(31, args.motion_range if args.motion_range is not None else pp['motion']))
     scene_threshold = float(args.scene_threshold if args.scene_threshold is not None else pp['scene'])
+    if args.codec == 7 and motion_range:
+        print('[GHV] GHVC7 profile 0 has no motion-vector syntax yet; ignoring motion range.', flush=True)
+        motion_range = 0
 
     ffmpeg = find_tool('ffmpeg', args.ffmpeg)
     ffprobe = find_tool('ffprobe', args.ffprobe)
@@ -261,7 +265,7 @@ def main():
                     frame_count=0, keyint=keyint, quality=quality,
                     audio_rate=0, audio_channels=0, audio_codec=0, audio_samples=0,
                     frames_offset=HEADER_SIZE, audio_offset=0, index_offset=0,
-                    duration_us=0, major=0, minor=6)
+                    duration_us=0, major=0, minor=args.codec)
 
     vf = f'crop={w}:{h}:0:0'
     video_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:v:0', '-an',
@@ -269,10 +273,12 @@ def main():
 
     native_core = find_native_core() if args.native != 'off' else None
     if args.native == 'on' and not native_core:
-        raise SystemExit('Native GHVC6 core requested but not built. Run build_native_windows.bat, or use --native off.')
+        raise SystemExit(f'Native GHVC{args.codec} core requested but not built. Run build_native_windows.bat.')
     use_native = bool(native_core)
+    if args.codec == 7 and not use_native:
+        raise SystemExit('GHVC7 requires the native C++ core. Build native/ghvcore first.')
     engine = 'Native C++' if use_native else 'Fast NumPy'
-    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC6 | {args.preset} | engine={engine}', flush=True)
+    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC{args.codec} | {args.preset} | engine={engine}', flush=True)
     print(f'[GHV] quality={quality} keyint={keyint} motion=±{motion_range} scene={scene_threshold:g} threads={args.threads or "auto"}', flush=True)
     if est_frames:
         print(f'[GHV] Estimated frames: {est_frames}', flush=True)
@@ -292,7 +298,7 @@ def main():
             frame_count = encode_video_native_direct(
                 video_cmd, native_core, out_path, w, h, quality, keyint,
                 scene_threshold, motion_range, est_frames, fps_num, fps_den,
-                max(0, args.threads))
+                max(0, args.threads), args.codec)
             with open(out_path, 'r+b') as f:
                 base_header = read_header(f)
                 # The native encoder has already written the complete video
@@ -325,7 +331,7 @@ def main():
                                 frame_count=frame_count, keyint=keyint, quality=quality,
                                 audio_rate=audio_rate, audio_channels=audio_channels, audio_codec=audio_codec,
                                 audio_samples=audio_samples, frames_offset=HEADER_SIZE, audio_offset=audio_offset,
-                                index_offset=base_header.index_offset, duration_us=duration_us, major=0, minor=6)
+                                index_offset=base_header.index_offset, duration_us=duration_us, major=0, minor=args.codec)
                 f.seek(0); f.write(header.pack()); f.flush()
                 final_size = os.fstat(f.fileno()).st_size
         else:

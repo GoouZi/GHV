@@ -21,7 +21,7 @@ def main():
     out = ROOT / 'tests' / '_selftest_v06.ghv'
     if native_core.exists():
         cmd = [sys.executable, str(ROOT / 'ghvenc.py'), str(src), str(out),
-               '--preset', 'balanced', '--native', 'on']
+               '--preset', 'balanced', '--native', 'on', '--codec', '6']
         p = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                            text=True, encoding='utf-8', errors='replace')
         if p.returncode:
