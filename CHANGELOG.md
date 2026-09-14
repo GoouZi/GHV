@@ -1,38 +1,51 @@
 # Changelog
 
-## GHV 0.5 / GHA 0.2 — Speed, compression & playback stability
+## GHV 0.6 / GHA 0.2 — HD Pipeline Update
 
-- Introduced **GHVC4** and **GBP4**.
-- Added RLE-compressed GBP4 descriptor maps.
-- Added reversible byte-delta transform for P residuals.
-- Kept closed-loop reconstruction to prevent encoder/decoder reference drift.
-- Added Very Fast preset and native thread control.
-- Disabled expensive global-motion search in normal presets after benchmarks showed it could make current GHVC4 both slower and larger; retained `--motion-range` as an experimental override.
-- Added native C++17 GHVC4 decoder (`ghvdecode`).
-- Added native-first playback path to avoid Python/OpenCV frame starvation.
-- Added `ghvverify.py` / `verify.bat` for index/decode/CRC validation.
-- Added explicit Python-player starvation diagnostics.
-- Added `ghvbench.py` for repeatable encode + verify tests.
-- Build scripts now produce both native encoder and decoder on Windows/Linux/macOS.
-- Retained GHVC3 decoding in the Python reference player for GHV 0.4 compatibility.
+- Native **direct mux** path: ghvcore can write the final `.ghv` video stream/index/header itself; Python only appends audio and patches fixed header fields.
+- Added zero-motion P-frame fast path for normal presets; removes unnecessary motion-grid work when search range is 0.
+- Python GHVC6 reference decoder fixed/expanded for GBP6 Rice, ZP06 and zero-motion P payloads.
+- Playback buffer now supports Auto sizing (~64 MiB decoded cushion, bounded 8–32 frames).
+- Native decoder startup prebuffer now fills roughly half of the configured queue.
+- `ghvdoctor.py` now benchmarks the complete native-decoder → FFmpeg rawvideo handoff, not only codec decode.
+- Added `ghvrepair.py` / `repair.bat` and Studio **Repair Index** action.
+- Added `compact` encoder preset.
+- Added `tests/selftest_v06.py` covering direct encode, Python/native decode, CRC, GHA and index repair.
+- GHVC6 introduced.
+- GBP6 replaces the default GHVC residual payload:
+  - 256-block independent chunks;
+  - OpenMP-friendly encode/decode;
+  - zero, fixed 1–8 bit, sparse and custom Rice modes;
+  - block-local byte delta for P residuals.
+- Added ZP06 optional zero-run wrapper; kept only when smaller.
+- Added closed-loop residual dead-zone/step quantization.
+- Added experimental GPM6 32x32 local block-motion payload.
+- Speed presets default motion search to zero after benchmarks showed that motion search is not yet a universal win.
+- Increased native FFmpeg/core pipe buffers for 1080p.
+- Native decoder now supports GHVC4/5/6 and uses a producer/consumer decoded-frame queue.
+- Added real startup frame prebuffer.
+- Native playback mux uses input queues and stream-copy into NUT.
+- ffplay now uses video master clock to prevent audio racing ahead during a video stall.
+- Added `ghvdoctor.py` / `diagnose.bat` for decode-speed and realtime-headroom diagnostics.
+- Studio exposes playback-buffer size and Diagnose action.
+- Native decoder now builds with OpenMP when available on Windows/Linux/macOS.
+- Container minor version bumped to 0.6.
 
-Development benchmarks:
+Real user benchmark entering this release: GHV 0.5 reduced the reference 1080p30 MV from 927 MB (0.4) to **819 MB**.
 
-- included sample: 376,217 bytes (GHV 0.4) -> 339,745 bytes (GHV 0.5), ~9.7% smaller;
-- sample YUV PSNR remains ~48.82 dB;
-- synthetic 1280x720/30 test: ~9.31 MiB -> ~6.43 MiB, ~31% smaller, while native codec-core speed stayed around 62 FPS on the development machine.
+Internal 1080p180-frame benchmark: 0.5 40.68 MiB / 32.48 fps -> 0.6 37.31 MiB / 38.36 fps; native decode around 94–100 fps after OpenMP build.
 
-Real-world baseline awaiting GHV 0.5 retest: MP4 24.6 MB / OGV 45.2 MB / GHV 0.4 927 MB.
+## GHV 0.5 / GHA 0.2
 
-## GHV 0.4 / GHA 0.2 — Compression & rename update
+- GHVC4 / GBP4.
+- Descriptor RLE and P byte delta.
+- Native decoder + native-first playback.
+- Verify and benchmark utilities.
+- Default global motion disabled after poor cost/benefit in tests.
 
-- Renamed GVID -> GHV (`.ghv`) and GAUD -> GHA (`.gha`).
-- Introduced GHVC3 + GBP3 adaptive residual packing.
-- Added sparse residual blocks and global-motion prediction.
-- Added repeat-frame representation.
-- Native encoder streams directly into the GHV container, removing the large intermediate file/copy pass.
-- Added Fast / Balanced / Quality presets.
-- Added decode-ahead playback queue, PTS scheduling, late-frame dropping and keyframe recovery.
-- Added JSON inspector output.
-- Added CMake, Windows, Linux and macOS native-core build paths.
-- Renamed embedded/standalone audio codec to GHAC1 and container to `.gha`.
+## GHV 0.4 / GHA 0.2
+
+- GVID/GAUD renamed to GHV/GHA.
+- GHVC3/GBP3.
+- Native streaming encoder path.
+- First substantial compression update.

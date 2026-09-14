@@ -8,17 +8,16 @@ from ghv.codec4 import quantize_yuv420, encode_frame as encode_frame4
 from ghv.gha import encode_pcm16le as encode_ghac1
 from ghv.container import (Header, HEADER_SIZE, FRAME_FMT, AUDIO_FMT,
                            INDEX_HEAD_FMT, INDEX_ENTRY_FMT, VFRM, AUD0, INDX,
-                           pack_motion)
+                           pack_motion, read_header, read_index)
 
 PRESETS = {
-    # GHVC4's byte-delta residual coder currently compresses ordinary footage
-    # better *and* much faster with zero global-motion search. The codec still
-    # supports --motion-range for experiments, but the default presets keep it
-    # off until block motion lands in GHVC5.
-    'veryfast': dict(quality=68, keyint=60,  motion=0, scene=32.0),
-    'fast':     dict(quality=74, keyint=75,  motion=0, scene=31.0),
-    'balanced': dict(quality=78, keyint=90,  motion=0, scene=30.0),
-    'quality':  dict(quality=88, keyint=120, motion=0, scene=29.0),
+    # GHVC6 includes local 32x32 block motion, but its search is still experimental.
+    # Speed-oriented presets keep it off; Quality enables a small search range.
+    'veryfast': dict(quality=68, keyint=90,  motion=0, scene=32.0),
+    'fast':     dict(quality=74, keyint=105, motion=0, scene=31.0),
+    'compact':  dict(quality=72, keyint=150, motion=0, scene=29.0),
+    'balanced': dict(quality=78, keyint=120, motion=0, scene=30.0),
+    'quality':  dict(quality=88, keyint=150, motion=2, scene=29.0),
 }
 
 
@@ -79,15 +78,15 @@ def find_native_core() -> str | None:
 def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: int,
                         keyint: int, scene_threshold: float, motion_range: int,
                         est_frames: int, f, fps_num: int, fps_den: int, threads: int = 0):
-    """Stream GHVC4 records straight into the final GHV container.
+    """Stream GHVC6 records straight into the final GHV container.
 
     v0.3 wrote the complete native intermediate to a temporary file and then
     copied it into the container. GHV 0.4 removes that double I/O and the huge
-    temporary-disk requirement: ghvcore writes an uncounted GHS4 stream to
+    temporary-disk requirement: ghvcore writes an uncounted GHS6 stream to
     stdout while this wrapper immediately writes each record into .ghv.
     """
     frame_offsets: list[tuple[int, int]] = []
-    ff = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1024 * 1024)
+    ff = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=16 * 1024 * 1024)
     assert ff.stdout is not None
     err_tmp = tempfile.TemporaryFile(mode='w+b')
     cmd = [native_core, str(w), str(h), str(quality), str(keyint), str(scene_threshold),
@@ -95,35 +94,35 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
     env = os.environ.copy()
     if threads and threads > 0:
         env['OMP_NUM_THREADS'] = str(threads)
-    core = subprocess.Popen(cmd, stdin=ff.stdout, stdout=subprocess.PIPE, stderr=err_tmp, bufsize=1024 * 1024, env=env)
+    core = subprocess.Popen(cmd, stdin=ff.stdout, stdout=subprocess.PIPE, stderr=err_tmp, bufsize=16 * 1024 * 1024, env=env)
     ff.stdout.close()
     assert core.stdout is not None
     count = 0
     t0 = time.perf_counter()
     try:
         head = core.stdout.read(20)
-        if len(head) != 20 or head[:4] != b'GHS5':
-            raise RuntimeError('bad GHVC4 native stream header')
+        if len(head) != 20 or head[:4] != b'GHS6':
+            raise RuntimeError('bad GHVC6 native stream header')
         ver, sw, sh, raw_frame_size = struct.unpack_from('<IIII', head, 4)
-        if ver != 4 or sw != w or sh != h or raw_frame_size != w * h * 3 // 2:
-            raise RuntimeError('GHVC4 native stream metadata mismatch')
+        if ver != 6 or sw != w or sh != h or raw_frame_size != w * h * 3 // 2:
+            raise RuntimeError('GHVC6 native stream metadata mismatch')
 
         while True:
             rh = core.stdout.read(16)
             if not rh:
                 break
             if len(rh) != 16:
-                raise RuntimeError('truncated GHVC3 native frame record')
+                raise RuntimeError('truncated GHVC6 native frame record')
             typ = rh[0]
             dx = struct.unpack_from('<b', rh, 1)[0]
             dy = struct.unpack_from('<b', rh, 2)[0]
             raw_size, packed_size, checksum = struct.unpack_from('<III', rh, 4)
             payload = core.stdout.read(packed_size)
             if len(payload) != packed_size:
-                raise RuntimeError('truncated GHVC3 native frame payload')
+                raise RuntimeError('truncated GHVC6 native frame payload')
             off = f.tell()
             pts_us = (count * fps_den * 1_000_000) // fps_num
-            f.write(struct.pack(FRAME_FMT, VFRM, count, pts_us, typ, 4, pack_motion(dx, dy),
+            f.write(struct.pack(FRAME_FMT, VFRM, count, pts_us, typ, 6, pack_motion(dx, dy),
                                 raw_size, packed_size, checksum))
             f.write(payload)
             frame_offsets.append((off, typ))
@@ -143,9 +142,9 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
         core_err = err_tmp.read().decode('utf-8', 'replace')
         if core_err.strip():
             for line in core_err.splitlines():
-                print('[GHV native4] ' + line, flush=True)
+                print('[GHV native6] ' + line, flush=True)
         if rc_core != 0:
-            raise RuntimeError(f'Native GHVC4 core failed with exit {rc_core}:\n{core_err}')
+            raise RuntimeError(f'Native GHVC6 core failed with exit {rc_core}:\n{core_err}')
         if rc_ff != 0:
             raise RuntimeError('FFmpeg video decode failed:\n' + err)
         return count, frame_offsets
@@ -157,8 +156,67 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
         err_tmp.close()
 
 
+
+def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: int, h: int,
+                               quality: int, keyint: int, scene_threshold: float,
+                               motion_range: int, est_frames: int, fps_num: int,
+                               fps_den: int, threads: int = 0) -> int:
+    """GHV 0.6 fast path: native core writes VFRM + INDX + header itself.
+
+    Python never receives packed video frames, which removes one full copy and
+    thousands of per-frame struct/write calls on long 1080p encodes.
+    """
+    ff_err = tempfile.TemporaryFile(mode='w+b')
+    ff = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=ff_err,
+                          bufsize=16 * 1024 * 1024)
+    assert ff.stdout is not None
+    cmd = [native_core, str(w), str(h), str(quality), str(keyint),
+           str(scene_threshold), str(motion_range), str(out_path),
+           str(est_frames), '--ghv', str(fps_num), str(fps_den)]
+    env = os.environ.copy()
+    if threads and threads > 0:
+        env['OMP_NUM_THREADS'] = str(threads)
+    core = subprocess.Popen(cmd, stdin=ff.stdout, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.PIPE, text=True,
+                            encoding='utf-8', errors='replace', bufsize=1, env=env)
+    ff.stdout.close()
+    assert core.stderr is not None
+    try:
+        for raw_line in core.stderr:
+            line = raw_line.rstrip('\r\n')
+            if line.startswith('GHV_PROGRESS '):
+                print('PROGRESS ' + line[len('GHV_PROGRESS '):], flush=True)
+            elif line:
+                print('[GHV native6] ' + line, flush=True)
+        rc_core = core.wait()
+        rc_ff = ff.wait()
+        ff_err.seek(0)
+        ferr = ff_err.read().decode('utf-8', 'replace')
+        if rc_core != 0:
+            raise RuntimeError(f'Native GHVC6 direct encoder failed with exit {rc_core}')
+        if rc_ff != 0:
+            raise RuntimeError('FFmpeg video decode failed:\n' + ferr)
+        with open(out_path, 'rb') as vf:
+            vh = read_header(vf)
+            idx = read_index(vf, vh)
+        if vh.minor != 6 or vh.frame_count != len(idx):
+            raise RuntimeError('native direct GHV header/index validation failed')
+        return vh.frame_count
+    finally:
+        ff_err.close()
+        try:
+            if core.poll() is None:
+                core.terminate()
+        except Exception:
+            pass
+        try:
+            if ff.poll() is None:
+                ff.terminate()
+        except Exception:
+            pass
+
 def main():
-    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV 0.5 / GHVC4')
+    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV 0.6 / GHVC6')
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
@@ -203,7 +261,7 @@ def main():
                     frame_count=0, keyint=keyint, quality=quality,
                     audio_rate=0, audio_channels=0, audio_codec=0, audio_samples=0,
                     frames_offset=HEADER_SIZE, audio_offset=0, index_offset=0,
-                    duration_us=0, major=0, minor=5)
+                    duration_us=0, major=0, minor=6)
 
     vf = f'crop={w}:{h}:0:0'
     video_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:v:0', '-an',
@@ -211,10 +269,10 @@ def main():
 
     native_core = find_native_core() if args.native != 'off' else None
     if args.native == 'on' and not native_core:
-        raise SystemExit('Native GHVC4 core requested but not built. Run build_native_windows.bat, or use --native off.')
+        raise SystemExit('Native GHVC6 core requested but not built. Run build_native_windows.bat, or use --native off.')
     use_native = bool(native_core)
     engine = 'Native C++' if use_native else 'Fast NumPy'
-    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC4 | {args.preset} | engine={engine}', flush=True)
+    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC6 | {args.preset} | engine={engine}', flush=True)
     print(f'[GHV] quality={quality} keyint={keyint} motion=±{motion_range} scene={scene_threshold:g} threads={args.threads or "auto"}', flush=True)
     if est_frames:
         print(f'[GHV] Estimated frames: {est_frames}', flush=True)
@@ -225,18 +283,56 @@ def main():
     frame_count = 0
     flags = 0
     audio_offset = audio_samples = audio_channels = audio_codec = audio_rate = 0
+    duration_us = 0
     t0 = time.perf_counter()
 
     try:
-        with open(out_path, 'wb+') as f:
-            f.write(header.pack())
-            if use_native:
-                frame_count, frame_offsets = encode_video_native(
-                    video_cmd, native_core, w, h, quality, keyint, scene_threshold,
-                    motion_range, est_frames, f, fps_num, fps_den, max(0, args.threads))
-            else:
+        if use_native:
+            print('[GHV] Direct native mux enabled: Python will not copy packed video frames.', flush=True)
+            frame_count = encode_video_native_direct(
+                video_cmd, native_core, out_path, w, h, quality, keyint,
+                scene_threshold, motion_range, est_frames, fps_num, fps_den,
+                max(0, args.threads))
+            with open(out_path, 'r+b') as f:
+                base_header = read_header(f)
+                # The native encoder has already written the complete video
+                # stream and index.  Audio is appended *after* the index; all
+                # sections are located by offsets, so no video bytes move.
+                f.seek(0, os.SEEK_END)
+                if aus is not None and not args.no_audio:
+                    audio_rate = int(args.audio_rate) if int(args.audio_rate) > 0 else int(aus.get('sample_rate') or 48000)
+                    audio_channels = max(1, min(2, int(aus.get('channels') or 2)))
+                    audio_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:a:0', '-vn',
+                                 '-f', 's16le', '-acodec', 'pcm_s16le', '-ac', str(audio_channels),
+                                 '-ar', str(audio_rate), '-']
+                    print('[GHV] Encoding embedded audio with GHAC1...', flush=True)
+                    pcm = subprocess.check_output(audio_cmd)
+                    audio_samples = len(pcm) // (2 * audio_channels)
+                    bits = 8 if args.audio_quality == 'hq' else 6
+                    gha = encode_ghac1(pcm, audio_rate, audio_channels, bits=bits,
+                                       block_frames=32, quality=(92 if bits == 8 else 74))
+                    audio_codec = 4
+                    audio_offset = f.tell()
+                    f.write(struct.pack(AUDIO_FMT, AUD0, audio_codec, len(gha), audio_samples))
+                    f.write(gha)
+                    flags |= 1
+                    print(f'[GHV] Audio PCM {len(pcm)/(1024*1024):.2f} MiB -> GHAC1 {len(gha)/(1024*1024):.2f} MiB', flush=True)
+
+                video_dur_us = (frame_count * fps_den * 1_000_000) // fps_num if frame_count else 0
+                audio_dur_us = (audio_samples * 1_000_000) // audio_rate if audio_rate and audio_samples else 0
+                duration_us = max(video_dur_us, audio_dur_us)
+                header = Header(flags=flags, width=w, height=h, fps_num=fps_num, fps_den=fps_den,
+                                frame_count=frame_count, keyint=keyint, quality=quality,
+                                audio_rate=audio_rate, audio_channels=audio_channels, audio_codec=audio_codec,
+                                audio_samples=audio_samples, frames_offset=HEADER_SIZE, audio_offset=audio_offset,
+                                index_offset=base_header.index_offset, duration_us=duration_us, major=0, minor=6)
+                f.seek(0); f.write(header.pack()); f.flush()
+                final_size = os.fstat(f.fileno()).st_size
+        else:
+            with open(out_path, 'wb+') as f:
+                f.write(header.pack())
                 prev = None
-                proc = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1024 * 1024)
+                proc = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=16 * 1024 * 1024)
                 assert proc.stdout is not None
                 repeats = 0
                 while True:
@@ -274,42 +370,40 @@ def main():
                 if rc != 0:
                     raise RuntimeError('FFmpeg video decode failed:\n' + err)
 
-            if aus is not None and not args.no_audio:
-                audio_rate = int(args.audio_rate) if int(args.audio_rate) > 0 else int(aus.get('sample_rate') or 48000)
-                audio_channels = max(1, min(2, int(aus.get('channels') or 2)))
-                audio_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:a:0', '-vn',
-                             '-f', 's16le', '-acodec', 'pcm_s16le', '-ac', str(audio_channels),
-                             '-ar', str(audio_rate), '-']
-                print('[GHV] Encoding embedded audio with GHAC1...', flush=True)
-                pcm = subprocess.check_output(audio_cmd)
-                audio_samples = len(pcm) // (2 * audio_channels)
-                bits = 8 if args.audio_quality == 'hq' else 6
-                gha = encode_ghac1(pcm, audio_rate, audio_channels, bits=bits,
-                                   block_frames=32, quality=(92 if bits == 8 else 74))
-                audio_codec = 4
-                audio_offset = f.tell()
-                f.write(struct.pack(AUDIO_FMT, AUD0, audio_codec, len(gha), audio_samples))
-                f.write(gha)
-                flags |= 1
-                print(f'[GHV] Audio PCM {len(pcm)/(1024*1024):.2f} MiB -> GHAC1 {len(gha)/(1024*1024):.2f} MiB', flush=True)
+                if aus is not None and not args.no_audio:
+                    audio_rate = int(args.audio_rate) if int(args.audio_rate) > 0 else int(aus.get('sample_rate') or 48000)
+                    audio_channels = max(1, min(2, int(aus.get('channels') or 2)))
+                    audio_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:a:0', '-vn',
+                                 '-f', 's16le', '-acodec', 'pcm_s16le', '-ac', str(audio_channels),
+                                 '-ar', str(audio_rate), '-']
+                    print('[GHV] Encoding embedded audio with GHAC1...', flush=True)
+                    pcm = subprocess.check_output(audio_cmd)
+                    audio_samples = len(pcm) // (2 * audio_channels)
+                    bits = 8 if args.audio_quality == 'hq' else 6
+                    gha = encode_ghac1(pcm, audio_rate, audio_channels, bits=bits,
+                                       block_frames=32, quality=(92 if bits == 8 else 74))
+                    audio_codec = 4
+                    audio_offset = f.tell()
+                    f.write(struct.pack(AUDIO_FMT, AUD0, audio_codec, len(gha), audio_samples))
+                    f.write(gha)
+                    flags |= 1
+                    print(f'[GHV] Audio PCM {len(pcm)/(1024*1024):.2f} MiB -> GHAC1 {len(gha)/(1024*1024):.2f} MiB', flush=True)
 
-            index_offset = f.tell()
-            f.write(struct.pack(INDEX_HEAD_FMT, INDX, len(frame_offsets)))
-            for off, typ in frame_offsets:
-                f.write(struct.pack(INDEX_ENTRY_FMT, off, typ))
+                index_offset = f.tell()
+                f.write(struct.pack(INDEX_HEAD_FMT, INDX, len(frame_offsets)))
+                for off, typ in frame_offsets:
+                    f.write(struct.pack(INDEX_ENTRY_FMT, off, typ))
 
-            video_dur_us = (frame_count * fps_den * 1_000_000) // fps_num if frame_count else 0
-            audio_dur_us = (audio_samples * 1_000_000) // audio_rate if audio_rate and audio_samples else 0
-            duration_us = max(video_dur_us, audio_dur_us)
-            header = Header(flags=flags, width=w, height=h, fps_num=fps_num, fps_den=fps_den,
-                            frame_count=frame_count, keyint=keyint, quality=quality,
-                            audio_rate=audio_rate, audio_channels=audio_channels, audio_codec=audio_codec,
-                            audio_samples=audio_samples, frames_offset=HEADER_SIZE, audio_offset=audio_offset,
-                            index_offset=index_offset, duration_us=duration_us, major=0, minor=5)
-            f.seek(0)
-            f.write(header.pack())
-            f.flush()
-            final_size = os.fstat(f.fileno()).st_size
+                video_dur_us = (frame_count * fps_den * 1_000_000) // fps_num if frame_count else 0
+                audio_dur_us = (audio_samples * 1_000_000) // audio_rate if audio_rate and audio_samples else 0
+                duration_us = max(video_dur_us, audio_dur_us)
+                header = Header(flags=flags, width=w, height=h, fps_num=fps_num, fps_den=fps_den,
+                                frame_count=frame_count, keyint=keyint, quality=quality,
+                                audio_rate=audio_rate, audio_channels=audio_channels, audio_codec=audio_codec,
+                                audio_samples=audio_samples, frames_offset=HEADER_SIZE, audio_offset=audio_offset,
+                                index_offset=index_offset, duration_us=duration_us, major=0, minor=6)
+                f.seek(0); f.write(header.pack()); f.flush()
+                final_size = os.fstat(f.fileno()).st_size
     except Exception:
         # A half-written media file is more confusing than no output at all.
         try:

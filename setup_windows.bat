@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo [GHV 0.5] Installing Python runtime dependencies...
+echo [GHV 0.6] Installing Python runtime dependencies...
 python -m pip install -r requirements.txt
 if errorlevel 1 (
   echo.
@@ -21,7 +21,7 @@ goto :native
 echo [GHV] FFmpeg detected.
 :native
 if exist "native\bin\ghvcore.exe" if exist "native\bin\ghvdecode.exe" (
-  echo [GHV] Native GHVC4 encoder and decoder already built.
+  echo [GHV] Native GHVC6 encoder and decoder already built.
   goto :done
 )
 where cl >nul 2>nul
@@ -35,7 +35,7 @@ echo       For much faster encoding and more stable playback, install Visual Stu
 echo       MinGW-w64, or LLVM, then run build_native_windows.bat.
 goto :done
 :build
-echo [GHV] C++ compiler detected; building native GHVC4 encoder + decoder...
+echo [GHV] C++ compiler detected; building native GHVC6 encoder + decoder...
 call native\build_windows.bat
 :done
 echo.

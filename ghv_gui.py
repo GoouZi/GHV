@@ -21,7 +21,7 @@ def parse_progress(line: str):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('GHV Studio 0.5')
+        self.title('GHV Studio 0.6')
         self.geometry('860x650')
         self.minsize(760, 560)
         self.infile = tk.StringVar()
@@ -29,6 +29,7 @@ class App(tk.Tk):
         self.preset = tk.StringVar(value='balanced')
         self.audio_mode = tk.StringVar(value='hq')
         self.threads = tk.StringVar(value='Auto')
+        self.play_buffer = tk.StringVar(value='Auto')
         self.status = tk.StringVar(value='Ready')
         self.speed = tk.StringVar(value='')
         self.proc = None
@@ -46,17 +47,20 @@ class App(tk.Tk):
         ttk.Button(top, text='Browse…', command=self.pick_output).grid(row=3, column=1)
         top.columnconfigure(0, weight=1)
 
-        opt = ttk.LabelFrame(self, text='GHVC4 encoding')
+        opt = ttk.LabelFrame(self, text='GHVC6 encoding')
         opt.pack(fill='x', **pad)
         ttk.Label(opt, text='Preset').grid(row=0, column=0, sticky='w', padx=8, pady=8)
-        ttk.Combobox(opt, textvariable=self.preset, values=['veryfast', 'fast', 'balanced', 'quality'], state='readonly', width=14).grid(row=0, column=1, sticky='w', padx=8, pady=8)
-        ttk.Label(opt, text='Balanced: good size/speed. Very Fast: quickest tests.').grid(row=0, column=2, sticky='w', padx=8)
+        ttk.Combobox(opt, textvariable=self.preset, values=['veryfast', 'fast', 'compact', 'balanced', 'quality'], state='readonly', width=14).grid(row=0, column=1, sticky='w', padx=8, pady=8)
+        ttk.Label(opt, text='Balanced: default. Compact: smaller files. Very Fast: quickest tests.').grid(row=0, column=2, sticky='w', padx=8)
         ttk.Label(opt, text='Audio').grid(row=1, column=0, sticky='w', padx=8, pady=(0, 8))
         ttk.Combobox(opt, textvariable=self.audio_mode, values=['hq', 'compact'], state='readonly', width=14).grid(row=1, column=1, sticky='w', padx=8, pady=(0, 8))
         ttk.Label(opt, text='GHAC1 HQ recommended for music').grid(row=1, column=2, sticky='w', padx=8, pady=(0, 8))
         ttk.Label(opt, text='Native threads').grid(row=2, column=0, sticky='w', padx=8, pady=(0, 8))
         ttk.Combobox(opt, textvariable=self.threads, values=['Auto','2','4','6','8','12','16'], state='readonly', width=14).grid(row=2, column=1, sticky='w', padx=8, pady=(0, 8))
         ttk.Label(opt, text='Auto normally uses all OpenMP threads available.').grid(row=2, column=2, sticky='w', padx=8, pady=(0, 8))
+        ttk.Label(opt, text='Playback buffer').grid(row=3, column=0, sticky='w', padx=8, pady=(0, 8))
+        ttk.Combobox(opt, textvariable=self.play_buffer, values=['Auto','8','12','16','24','32'], state='readonly', width=14).grid(row=3, column=1, sticky='w', padx=8, pady=(0, 8))
+        ttk.Label(opt, text='Auto targets ~64 MiB decoded cushion; 1080p usually gets ~20 frames.').grid(row=3, column=2, sticky='w', padx=8, pady=(0, 8))
         opt.columnconfigure(2, weight=1)
 
         buttons = ttk.Frame(self)
@@ -68,6 +72,8 @@ class App(tk.Tk):
         ttk.Button(buttons, text='Play GHV…', command=self.play_file).pack(side='left', padx=8)
         ttk.Button(buttons, text='Inspect…', command=self.info_file).pack(side='left')
         ttk.Button(buttons, text='Verify…', command=self.verify_file).pack(side='left', padx=8)
+        ttk.Button(buttons, text='Diagnose…', command=self.diagnose_file).pack(side='left')
+        ttk.Button(buttons, text='Repair Index…', command=self.repair_file).pack(side='left', padx=8)
         ttk.Button(buttons, text='Build Native Core', command=self.build_native).pack(side='right')
 
         self.bar = ttk.Progressbar(self, maximum=100, mode='determinate')
@@ -78,7 +84,7 @@ class App(tk.Tk):
         ttk.Label(stat, textvariable=self.speed).pack(side='right')
         self.log = tk.Text(self, height=18, wrap='word')
         self.log.pack(fill='both', expand=True, padx=10, pady=8)
-        self.log.insert('end', 'GHV 0.5 — GHVC4 speed/compression update + native playback + verification\n')
+        self.log.insert('end', 'GHV 0.6 — GHVC6 HD pipeline, faster native codec, buffered playback, Rice + zero-run compression\n')
         self.log.insert('end', 'Native C++ encoder/decoder is strongly recommended; Python remains a compatibility path.\n')
 
     def pick_input(self):
@@ -166,7 +172,10 @@ class App(tk.Tk):
     def play_file(self):
         p = filedialog.askopenfilename(title='Play GHV', filetypes=[('GHV video', '*.ghv'), ('All files', '*.*')])
         if p:
-            subprocess.Popen([sys.executable, os.path.join(ROOT, 'ghvplay.py'), p], cwd=ROOT)
+            cmd = [sys.executable, os.path.join(ROOT, 'ghvplay.py'), p]
+            if self.play_buffer.get() != 'Auto':
+                cmd += ['--buffer', self.play_buffer.get()]
+            subprocess.Popen(cmd, cwd=ROOT)
 
     def info_file(self):
         p = filedialog.askopenfilename(title='Inspect GHV', filetypes=[('GHV video', '*.ghv'), ('All files', '*.*')])
@@ -194,6 +203,43 @@ class App(tk.Tk):
                 self.after(0, self.status.set, 'Verification failed')
             except Exception as e:
                 self.after(0, messagebox.showerror, 'GHV Verify', str(e))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def diagnose_file(self):
+        p = filedialog.askopenfilename(title='Diagnose GHV playback', filetypes=[('GHV video', '*.ghv'), ('All files', '*.*')])
+        if not p:
+            return
+        self.status.set('Diagnosing playback…')
+        def worker():
+            try:
+                text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvdoctor.py'), p], cwd=ROOT, text=True, encoding='utf-8', errors='replace', stderr=subprocess.STDOUT)
+                self.after(0, messagebox.showinfo, 'GHV Playback Diagnosis', text.strip())
+                self.after(0, self.status.set, 'Diagnosis complete')
+            except subprocess.CalledProcessError as e:
+                self.after(0, messagebox.showerror, 'GHV Playback Diagnosis', e.output or str(e))
+                self.after(0, self.status.set, 'Diagnosis failed')
+            except Exception as e:
+                self.after(0, messagebox.showerror, 'GHV Playback Diagnosis', str(e))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def repair_file(self):
+        p = filedialog.askopenfilename(title='Repair GHV index', filetypes=[('GHV video', '*.ghv'), ('All files', '*.*')])
+        if not p:
+            return
+        out = os.path.splitext(p)[0] + '_repaired.ghv'
+        self.status.set('Repairing index…')
+        def worker():
+            try:
+                text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvrepair.py'), p, out],
+                                               cwd=ROOT, text=True, encoding='utf-8', errors='replace',
+                                               stderr=subprocess.STDOUT)
+                self.after(0, messagebox.showinfo, 'GHV Repair', text.strip())
+                self.after(0, self.status.set, 'Repair complete')
+            except subprocess.CalledProcessError as e:
+                self.after(0, messagebox.showerror, 'GHV Repair', e.output or str(e))
+                self.after(0, self.status.set, 'Repair failed')
+            except Exception as e:
+                self.after(0, messagebox.showerror, 'GHV Repair', str(e))
         threading.Thread(target=worker, daemon=True).start()
 
     def build_native(self):

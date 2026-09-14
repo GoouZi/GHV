@@ -6,6 +6,8 @@ import numpy as np
 
 from ghv.codec3 import decode_frame as decode_frame3
 from ghv.codec4 import decode_frame as decode_frame4
+from ghv.codec5 import decode_frame as decode_frame5
+from ghv.codec6 import decode_frame as decode_frame6
 from ghv.gha import decode_pcm16le as decode_ghac1
 from ghv.container import (read_header, read_index, FRAME_FMT, FRAME_SIZE,
                            AUDIO_FMT, AUDIO_SIZE, VFRM, AUD0, unpack_motion)
@@ -75,7 +77,11 @@ def decode_one(f, h, prev, verify=False):
     if len(payload) != packed_size:
         raise ValueError(f'truncated frame payload #{no}')
     dx, dy = unpack_motion(meta)
-    if codec == 4:
+    if codec == 6:
+        yuv = decode_frame6(typ, payload, prev, h.width, h.height, raw_size, dx, dy)
+    elif codec == 5:
+        yuv = decode_frame5(typ, payload, prev, h.width, h.height, raw_size, dx, dy)
+    elif codec == 4:
         yuv = decode_frame4(typ, payload, prev, h.width, h.height, raw_size, dx, dy)
     elif codec == 3:
         yuv = decode_frame3(typ, payload, prev, h.width, h.height, raw_size, dx, dy)
@@ -91,6 +97,15 @@ def yuv420_to_bgr_cv(yuv: bytes, w: int, h: int, cv2):
     return cv2.cvtColor(a, cv2.COLOR_YUV2BGR_I420)
 
 
+def auto_buffer_frames(h) -> int:
+    frame_mib = (h.width * h.height * 1.5) / (1024 * 1024)
+    # Aim for roughly 64 MiB of decoded-frame cushion.  HD gets ~20 frames,
+    # 4K stays bounded, and small videos do not allocate silly amounts of RAM.
+    if frame_mib <= 0:
+        return 16
+    return max(8, min(32, int(round(64.0 / frame_mib))))
+
+
 def play_native(args, h, fps, target_frame, wav_path):
     native = find_native_decoder()
     ffmpeg = find_tool('ffmpeg', args.ffmpeg)
@@ -98,31 +113,37 @@ def play_native(args, h, fps, target_frame, wav_path):
     if not native or not ffmpeg or not ffplay:
         return False
 
-    dec_cmd = [native, args.input, '--start-frame', str(target_frame)]
+    dec_cmd = [native, args.input, '--start-frame', str(target_frame), '--buffer-frames', str(max(2, min(64, int(args.buffer))))]
     if args.verify:
         dec_cmd.append('--verify')
     fps_expr = f'{h.fps_num}/{h.fps_den}'
+    # Large 1080p GHV frames are ~3 MiB each.  Give FFmpeg its own packet
+    # queue so short decoder spikes do not immediately starve presentation.
     mux_cmd = [ffmpeg, '-hide_banner', '-loglevel', 'error',
+               '-thread_queue_size', '64',
                '-f', 'rawvideo', '-pixel_format', 'yuv420p', '-video_size', f'{h.width}x{h.height}',
-               '-framerate', fps_expr, '-i', '-']
+               '-framerate', fps_expr, '-i', 'pipe:0']
     if wav_path and not args.no_audio:
-        mux_cmd += ['-ss', f'{args.start:.6f}', '-i', wav_path, '-map', '0:v:0', '-map', '1:a:0',
-                    '-c:v', 'rawvideo', '-c:a', 'pcm_s16le']
+        mux_cmd += ['-thread_queue_size', '512', '-ss', f'{args.start:.6f}', '-i', wav_path,
+                    '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'copy']
     else:
-        mux_cmd += ['-map', '0:v:0', '-c:v', 'rawvideo']
-    mux_cmd += ['-f', 'nut', '-']
-    play_cmd = [ffplay, '-hide_banner', '-loglevel', 'warning', '-autoexit', '-i', '-']
+        mux_cmd += ['-map', '0:v:0', '-c:v', 'copy']
+    mux_cmd += ['-max_interleave_delta', '0', '-flush_packets', '0', '-f', 'nut', 'pipe:1']
+    # Video is the master clock.  On an overloaded machine this prevents audio
+    # from running far ahead while the picture appears frozen.
+    play_cmd = [ffplay, '-hide_banner', '-loglevel', 'warning', '-autoexit', '-infbuf',
+                '-sync', 'video', '-framedrop', '-probesize', '32', '-analyzeduration', '0', '-i', 'pipe:0']
 
-    print('[GHV] Playback engine: Native GHVC4 decoder + FFmpeg/ffplay presentation')
+    print('[GHV] Playback engine: Native GHVC decoder + buffered FFmpeg/ffplay presentation')
     derr = tempfile.TemporaryFile(mode='w+b'); merr = tempfile.TemporaryFile(mode='w+b')
     dec = mux = player = None
     try:
-        dec = subprocess.Popen(dec_cmd, stdout=subprocess.PIPE, stderr=derr, bufsize=4 * 1024 * 1024)
+        dec = subprocess.Popen(dec_cmd, stdout=subprocess.PIPE, stderr=derr, bufsize=16 * 1024 * 1024)
         assert dec.stdout is not None
-        mux = subprocess.Popen(mux_cmd, stdin=dec.stdout, stdout=subprocess.PIPE, stderr=merr, bufsize=4 * 1024 * 1024)
+        mux = subprocess.Popen(mux_cmd, stdin=dec.stdout, stdout=subprocess.PIPE, stderr=merr, bufsize=16 * 1024 * 1024)
         dec.stdout.close()
         assert mux.stdout is not None
-        player = subprocess.Popen(play_cmd, stdin=mux.stdout)
+        player = subprocess.Popen(play_cmd, stdin=mux.stdout, bufsize=16 * 1024 * 1024)
         mux.stdout.close()
         prc = player.wait()
         if mux.poll() is None:
@@ -134,9 +155,11 @@ def play_native(args, h, fps, target_frame, wav_path):
         if prc not in (0, 255):
             print(f'[GHV] ffplay exited with {prc}')
         if drc not in (0, -15, 1):
-            derr.seek(0); print('[GHV] Native decoder:', derr.read().decode('utf-8', 'replace'))
+            derr.seek(0); msg = derr.read().decode('utf-8', 'replace')
+            raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n{msg}')
         if mrc not in (0, -15, 1):
-            merr.seek(0); print('[GHV] FFmpeg mux:', merr.read().decode('utf-8', 'replace'))
+            merr.seek(0); msg = merr.read().decode('utf-8', 'replace')
+            raise RuntimeError(f'FFmpeg presentation mux failed (exit {mrc}):\n{msg}')
         return True
     finally:
         for p in (player, mux, dec):
@@ -195,7 +218,7 @@ def play_python(args, h, idx, fps, target, start_frame, worker_offset, worker_pr
             audio_proc = subprocess.Popen([ffplay, '-nodisp', '-autoexit', '-loglevel', 'quiet', '-ss', f'{args.start:.6f}', wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     print('[GHV] Playback engine: Python compatibility renderer')
-    win = 'GHV 0.5 Player - Q/ESC to quit'
+    win = 'GHV 0.6 Player - Q/ESC to quit'
     cv2.namedWindow(win, cv2.WINDOW_NORMAL); cv2.resizeWindow(win, h.width, h.height)
     base = time.perf_counter(); target_pts_us = int(args.start * 1_000_000); dropped=shown=starves=0
     try:
@@ -226,10 +249,10 @@ def play_python(args, h, idx, fps, target, start_frame, worker_offset, worker_pr
 
 
 def main():
-    ap=argparse.ArgumentParser(description='GHV 0.5 reference player')
+    ap=argparse.ArgumentParser(description='GHV 0.6 reference player')
     ap.add_argument('input'); ap.add_argument('--info',action='store_true'); ap.add_argument('--start',type=float,default=0.0)
     ap.add_argument('--no-audio',action='store_true'); ap.add_argument('--verify',action='store_true'); ap.add_argument('--strict',action='store_true')
-    ap.add_argument('--buffer',type=int,default=24,help='Python-player decoded frame queue, default 24')
+    ap.add_argument('--buffer',type=int,default=0,help='decoded-frame prebuffer; 0 = automatic based on resolution')
     ap.add_argument('--engine',choices=['auto','native','python'],default='auto')
     ap.add_argument('--ffmpeg'); ap.add_argument('--ffplay'); args=ap.parse_args()
 
@@ -242,22 +265,28 @@ def main():
             print(f'Duration {h.duration_us/1e6:.3f}s | video=GHVC{codec} | audio={"GHAC1" if h.audio_codec==4 else "none"}')
             if args.info:return
             if not h.frame_count: raise SystemExit('GHV contains no video frames')
+            if args.buffer <= 0:
+                args.buffer = auto_buffer_frames(h)
+                print(f'[GHV] Auto playback buffer: {args.buffer} frames (~{args.buffer*h.width*h.height*1.5/(1024*1024):.0f} MiB YUV)')
             target=max(0,min(h.frame_count-1,int(args.start*fps)))
             start_frame=target
             while start_frame>0 and idx[start_frame][1]!=0:start_frame-=1
             if not args.no_audio and h.audio_codec:
                 tmp=tempfile.NamedTemporaryFile(prefix='ghv_',suffix='.wav',delete=False); wav_path=tmp.name; tmp.close(); load_audio_to_wav(f,h,wav_path)
-            # Prepare Python state only if we need it. Decode from nearest I frame.
-            f.seek(idx[start_frame][0]); prev=None; frame_no=start_frame
-            while frame_no<target:
-                prev,_,_=decode_one(f,h,prev,args.verify); frame_no+=1
-            worker_offset=f.tell(); worker_prev=prev
+            # Native playback does not need Python to pre-decode the seek path.
 
-        native_ok=(codec==4 and find_native_decoder() and find_tool('ffmpeg',args.ffmpeg) and find_tool('ffplay',args.ffplay))
+        native_ok=(codec in (4,5,6) and find_native_decoder() and find_tool('ffmpeg',args.ffmpeg) and find_tool('ffplay',args.ffplay))
         if args.engine=='native' and not native_ok:
             raise SystemExit('Native playback requested but ghvdecode + FFmpeg + ffplay are not all available.')
         if args.engine in ('auto','native') and native_ok:
             if play_native(args,h,fps,target,wav_path): return
+
+        # Python compatibility path: reconstruct state from the nearest I frame.
+        with open(args.input,'rb') as f:
+            f.seek(idx[start_frame][0]); prev=None; frame_no=start_frame
+            while frame_no<target:
+                prev,_,_=decode_one(f,h,prev,args.verify); frame_no+=1
+            worker_offset=f.tell(); worker_prev=prev
         play_python(args,h,idx,fps,target,start_frame,worker_offset,worker_prev,frame_no,wav_path)
     finally:
         if wav_path:

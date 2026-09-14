@@ -2,121 +2,126 @@
 
 Last updated: 2026-09-14
 
-This file is intentionally written as a handoff for a future ChatGPT/Codex session or a human contributor.
+This is the handoff file for a future ChatGPT/Codex session or human contributor.
 
 ## Identity
 
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
-- Current video codec: GHVC4
-- Current audio codec: GHAC1
-- Current development release: GHV 0.5 / GHA 0.2
+- Current development release: **GHV 0.6 / GHA 0.2**
+- Current native video codec: **GHVC6**
+- Current audio codec: **GHAC1**
 - License: MIT
+- Legacy project names GVID / GAUD are retired.
 
-Legacy names GVID / GAUD are retired experimental names.
+## User real-world benchmark history
 
-## User's real-world benchmark
-
-Same MV:
+Same reference MV, 1080p30:
 
 - MP4: 24.6 MB
 - OGV: 45.2 MB
 - early GVID: 1.41 GB
 - GHV 0.4: 927 MB
-- GHV 0.5: NOT YET TESTED by user at this handoff
+- GHV 0.5: **819 MB**
+- GHV 0.6: waiting for user retest
 
-GHV 0.4 had minor almost-invisible stutter on the MV. A different video could freeze visually while audio continued.
+User feedback on 0.5:
 
-## Diagnosis of freeze report
+- conversion of 1080p30 is still too slow;
+- large GHV files can stutter;
+- one higher-resolution/large file could freeze visually while audio continued;
+- a lower-resolution file played smoothly.
 
-There are two distinct possibilities:
+This strongly points to HD decoder/presentation throughput in addition to compression inefficiency.
 
-1. encoded file is corrupt / decoder bug;
-2. Python decoder or OpenCV display starves while independent audio keeps playing.
+## GHV 0.6 architecture
 
-GHV 0.5 adds `ghvverify.py` and native `ghvdecode --verify` to separate these cases. It also makes native decode + ffplay presentation the default when available.
+GHVC6:
 
-If `ghvverify.py file.ghv` passes but Python playback freezes, treat it primarily as a player throughput problem. If verify fails, preserve the frame number and reproduce from the source.
+- YUV420p;
+- scalar source quantization;
+- I / P / Repeat frames;
+- closed-loop reference reconstruction;
+- GBP6 64-byte residual blocks grouped into 256-block independent chunks;
+- raw/RLE descriptor maps;
+- modes: zero, fixed 1..8-bit, sparse, Rice k0..5;
+- block-local byte delta on P residuals;
+- optional ZP06 zero-run wrapper;
+- CRC32 reconstructed-frame checksum;
+- experimental 32x32 GPM6 local block motion.
 
-## GHV 0.5 architecture
+Important: local motion exists, but normal speed presets currently use range 0. Benchmarks show that the current motion search/prediction does not yet save bytes consistently enough to justify default conversion cost. Do not claim it as solved.
 
-Input media is decoded by FFmpeg to raw YUV420p and PCM. FFmpeg does not encode GHVC/GHAC.
+Playback:
 
-GHVC4:
+- native `ghvdecode` supports GHVC4/5/6;
+- OpenMP decode where available;
+- producer/consumer frame queue;
+- startup prebuffer (about half of configured queue);
+- FFmpeg rawvideo input queue;
+- stream-copy raw video + PCM audio into NUT;
+- ffplay video-master sync;
+- Auto playback buffer targets ~64 MiB decoded YUV (8–32 frames);
+- native direct mux path removes Python from per-frame packed-video writes;
+- zero-motion P fast path avoids motion-grid overhead for normal presets.
 
-- scalar Y/C quantization;
-- I horizontal prediction;
-- temporal P prediction;
-- Repeat frame;
-- optional experimental global shift motion;
-- reversible byte-delta on P residual stream;
-- GBP4 64-byte adaptive residual packing;
-- raw or RLE descriptor map;
-- 0..8-bit block modes + sparse mode;
-- reconstructed-frame CRC32;
-- closed-loop encoder reference.
+Tools:
 
-GHA/GHAC1:
+- `ghvverify.py`: complete decode + CRC verification;
+- `ghvdoctor.py`: measures decoder fps **and decoder→FFmpeg pipe** realtime headroom;
+- `ghvbench.py`: repeatable encode/verify benchmark;
+- `ghvinfo.py`: format inspection;
+- `ghvrepair.py`: rebuilds the frame index from intact VFRM records.
 
-- exact block anchor;
-- per-channel adaptive scale;
-- predictive level differences;
-- 8-bit HQ or packed 6-bit Compact mode.
+## Internal 1080p benchmark
 
-## Important benchmark finding
+Development machine, 1920x1080, 30 fps, 180 frames, no audio:
 
-The GHV 0.4 whole-frame global motion search did not reliably help real compression architecture. On synthetic testing, searching motion could make encoding slower and sometimes produce larger residual streams. GHV 0.5 therefore sets motion range 0 in all normal presets and retains non-zero motion only as an experimental CLI option.
+- GHV 0.5 / GHVC4: 40.68 MiB, 32.48 native encode fps.
+- GHV 0.6 / GHVC6 Balanced: 37.31 MiB, 38.36 native encode fps.
+- 0.6 size improvement in this test: ~8.3%.
+- 0.6 encoder improvement: ~18%.
+- full conversion wall time: ~6.25 s -> ~5.43 s.
+- 0.6 native decoder after OpenMP build: roughly 94–100 fps.
+- 1080p30 raw YUV420 pipe bandwidth: ~89 MiB/s.
+- measured Balanced reconstructed quality on development tests is around the high-40s dB PSNR, but quality is content-dependent.
+- later 90-frame 1080p30 direct-mux/zero-motion microbenchmark: ~48.8 core encode fps, ~48.7 end-to-end video-only fps, ~151 native decode fps, ~133 decoder→FFmpeg pipe fps.
 
-Do not spend another release heavily optimizing global motion. Replace it with local block motion in GHVC5.
-
-## Internal GHV 0.5 benchmarks
-
-Included sample:
-
-- GHV 0.4: 376,217 bytes
-- GHV 0.5: 339,745 bytes
-- improvement: ~9.7%
-- source-vs-decoded YUV PSNR: ~48.82 dB
-
-Synthetic 1280x720/30fps codec-core test on development machine:
-
-- GHVC3: ~61.8 FPS / ~9.31 MiB
-- GHVC4 Balanced, motion 0: ~62.3 FPS / ~6.43 MiB
-- size improvement in that test: ~31%
-
-Do not claim these numbers as universal performance.
+Do not present these values as universal hardware performance.
 
 ## Immediate next user test
 
-Use the exact MV that produced 927 MB with GHV 0.4:
+Use the exact MV that produced 819 MB in 0.5:
 
 ```text
-python ghvenc.py MV.mp4 MV_v05.ghv --preset balanced
-python ghvverify.py MV_v05.ghv
-python ghvplay.py MV_v05.ghv --engine native
+python ghvenc.py MV.mp4 MV_v06.ghv --preset balanced
+python ghvverify.py MV_v06.ghv
+python ghvdoctor.py MV_v06.ghv
+python ghvplay.py MV_v06.ghv --engine native   # Auto buffer
 ```
 
 Record:
 
-- final GHV 0.5 file size;
-- average encoding FPS;
-- verification PASS/FAIL;
-- playback freeze/stutter status;
-- CPU usage if convenient.
+- final file size;
+- average conversion fps;
+- Verify PASS/FAIL;
+- Doctor decode fps/headroom;
+- whether visual freeze still occurs;
+- whether 16 vs 24 buffer changes stutter.
 
-Also re-encode the video that froze under 0.4, then verify it before playback.
+Also retest the separate high-resolution file that previously froze while audio continued.
 
-## Next codec milestone: GHVC5
+## Next major milestone
 
-GHVC4 remains a pixel-domain predictive codec. The largest remaining compression win requires transform-domain coding:
+Pixel-domain residual packing is reaching diminishing returns. The next compression milestone should be transform-domain **GHVC7**, not another long cycle of nibble/RLE tuning:
 
-1. macroblock/block partitioning;
-2. local motion vectors;
-3. integer transform;
-4. coefficient quantization;
-5. zig-zag and zero-run coding;
-6. measured entropy coder;
-7. multi-threaded block/frame pipeline;
-8. native library decoder.
+1. 8x8 integer transform (start with separable integer/Hadamard-like prototype, measure versus DCT-like transform);
+2. coefficient quantization by quality/frequency;
+3. zig-zag ordering;
+4. zero-run / run-level coding;
+5. entropy coding selected by measurements;
+6. local motion chosen by actual coded-cost estimate, not SAD alone;
+7. bounded multi-threaded encoder pipeline;
+8. native decoder library API for Godot/game integration.
 
-The project's first hard size target is OGV/Theora, not AV1.
+The first hard external size target remains OGV/Theora (45.2 MB on the reference MV).

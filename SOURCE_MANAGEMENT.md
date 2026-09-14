@@ -1,50 +1,37 @@
 # Source management
 
-GHV is now maintained as a normal Git project rather than only as release ZIP files.
+GHV is maintained as a real Git repository. Do not treat release ZIP files as the only source of truth.
 
-Recommended branch: `main`
+## Current tags
 
-Current tags:
+- `v0.4` — first GHV/GHA rename + GHVC3 compression update
+- `v0.5` — GHVC4 speed/stability update
+- `v0.6` — GHVC6 HD pipeline update
 
-- `v0.4` — GHV 0.4 / GHA 0.2 baseline
-- `v0.5` — speed, compression, playback stability update
-
-## Local continuation
-
-The source-repository ZIP distributed with 0.5 contains the `.git` directory. After extraction:
+## Local workflow
 
 ```bash
-git log --oneline --decorate --graph --all
 git status
-git checkout v0.4
-git checkout main
+git log --oneline --decorate --graph --all
+git tag
 ```
 
-`PROJECT_STATE.md` is the handoff document for a new conversation or contributor. Read it before changing codec behavior.
-
-## GitHub setup
-
-Once an empty GitHub repository exists, add it once:
+Before a new release:
 
 ```bash
-git remote add origin https://github.com/<owner>/<repo>.git
-git push -u origin main --tags
+git checkout main
+# make changes + run tests
+git add -A
+git commit -m "GHV x.y: ..."
+git tag vx.y
 ```
 
-After that, every release should update source first, run self-tests, commit, tag the release, and push the commit/tag.
+Generated native binaries under `native/bin/` are intentionally ignored by Git. They must be rebuilt from `native/*.cpp`.
 
-Suggested release workflow:
+## New conversation handoff
 
-```text
-edit
- -> python tests/selftest_v05.py (or current-version equivalent)
- -> python ghvverify.py reference.ghv
- -> benchmark representative samples
- -> update CHANGELOG / PROJECT_STATE / SPEC when bitstream changes
- -> git commit
- -> git tag
- -> push
- -> build release ZIP
-```
+If development moves to another ChatGPT/Codex conversation, provide the latest source repository ZIP and ask the new session to read `PROJECT_STATE.md`, `README.md`, `CHANGELOG.md`, and the newest `SPEC_GHV_*.md` before editing.
 
-Do not commit generated benchmark outputs, caches, or local compiler binaries unless a release process explicitly needs them.
+## GitHub
+
+The connected GitHub account currently did not expose an existing GHV repository when v0.5 was prepared. Once an empty repository such as `GoouZi/GHV` is created, this local repository can be pushed there and future releases can be committed/tagged remotely as well.

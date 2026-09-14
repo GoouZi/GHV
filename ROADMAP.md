@@ -1,68 +1,62 @@
 # GHV / GHA Roadmap
 
-Goal: an open, efficient, compact, good-looking media format that can become a practical OGV/Theora successor for game/media use, with a decoder simple enough to port widely.
+## Current — GHV 0.6
 
-## 0.5 — current: speed + stability bridge
+- GHVC6 / GBP6 chunked residual codec.
+- Native HD encoder/decoder.
+- Rice + fixed-bit + sparse residual coding.
+- ZP06 zero-run wrapper.
+- Buffered native playback and playback diagnostics.
+- Experimental local block motion.
 
-- GHVC4 / GBP4 descriptor compression and residual preprocessing.
-- native encoder + native decoder executable.
-- native-first playback presentation path.
-- file verifier and benchmark tool.
-- default path avoids global-motion search that was not paying for itself.
+## GHV 0.7 — Transform Compression
 
-## 0.6 — GHVC5 transform compression
+Primary objective: **large file-size reduction**, while keeping 1080p30 decoding comfortably realtime.
 
-This is the next major file-size step.
+Planned research:
 
-- 16x16 / 32x32 block motion vectors.
-- hierarchical / diamond / early-exit motion search.
-- intra block predictors.
-- 8x8 or 4x4 integer transform (DCT-like but specified exactly with integer arithmetic).
-- luma/chroma quantization matrices.
-- zig-zag coefficient order.
-- zero-run + run/level representation.
-- custom canonical Huffman or range/rANS-style entropy stage after measurement.
-- bounded multi-threaded frame/block worker pipeline.
-- rate-control experiments (target quality first, target bitrate later).
+- 8x8 integer transform prototype;
+- frequency-aware coefficient quantization;
+- zig-zag scan;
+- zero-run/run-level coefficients;
+- coded-cost block mode selection;
+- improved motion vectors only when they reduce final bits;
+- multi-thread transform/block worker pool;
+- benchmark against the fixed reference MV every build.
 
-## 0.7 — native runtime
+Target: move the reference MV from hundreds of MB toward low hundreds of MB without obvious quality collapse.
 
-- `libghv` decoder API instead of process-only `ghvdecode`.
-- standalone native player with no Python/OpenCV runtime requirement.
-- audio-clock-driven A/V synchronization.
-- native GHAC decoder path.
-- seek without decoding from frame zero.
-- bounded-memory streaming/index reader.
-- corrupted-file recovery and fuzz tests.
+## GHV 0.8 — Native Runtime
 
-## 0.8 — modern container features
+- `libghv` decoder API;
+- no Python in normal playback;
+- direct audio/video synchronization in native runtime;
+- seek/index API;
+- frame callbacks / texture upload path;
+- Godot extension prototype;
+- Windows/Linux/macOS x86-64 and ARM64 validation.
 
-Only after compression/playback fundamentals are solid:
+## GHV 0.9 — Container/Modern Features
 
-- metadata tags and cover/thumbnail chunks;
-- subtitles/captions;
-- multiple audio tracks;
+- metadata;
 - chapters;
-- alpha-video profile experiment;
-- streaming-friendly index placement;
-- color metadata (matrix/range/transfer/primaries);
-- optional 10-bit profile research.
+- multiple audio tracks;
+- subtitles;
+- alpha/profile experiments;
+- streaming-friendly index/chunks;
+- damage recovery and stronger fuzz testing.
 
-## 0.9 — compatibility
+## GHV 1.0 target
 
-- Windows x86-64 / ARM64.
-- Linux x86-64 / ARM64.
-- macOS Intel / Apple Silicon.
-- Android/ARM experiment.
-- lightweight decode profile for older/low-end hardware.
-- Godot integration / game-engine API experiments.
+- stable public bitstream/container spec;
+- stable decoder library;
+- reliable cross-platform playback;
+- clearly measured quality/size/speed tradeoffs;
+- target OGV/Theora replacement use case first, not AV1 replacement claims.
 
-## 1.0 target
+## Completed in 0.6 HD pipeline
 
-- Beat OGV/Theora on the project benchmark in size at comparable visual quality.
-- Stable A/V playback and seeking.
-- Fully documented public bitstream.
-- C/C++ decoder implementation with clear portability profile.
-- Backwards-compatibility policy for 1.x.
-
-Beating H.264/AV1 immediately is not a 1.0 requirement. First target: become meaningfully better than the project's OGV baseline while staying open and practical.
+- Direct native GHV video mux (Python removed from per-frame packed-video copy path).
+- Zero-motion fast P path.
+- Auto HD playback buffering and full pipe diagnostics.
+- Index repair utility.
