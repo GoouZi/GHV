@@ -50,7 +50,7 @@ class Header:
     index_offset: int
     duration_us: int
     major: int = 0
-    minor: int = 4
+    minor: int = 5
 
     def pack(self) -> bytes:
         return struct.pack(HEADER_FMT, MAGIC, self.major, self.minor, HEADER_SIZE,

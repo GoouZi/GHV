@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, os
-from ghv.container import read_header, read_index
+import argparse, json, os, struct
+from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE, VFRM
 
 
 def collect(path: str):
     with open(path, 'rb') as f:
         h = read_header(f)
         idx = read_index(f, h)
+        codec_id = 0
+        if idx:
+            f.seek(idx[0][0]); raw = f.read(FRAME_SIZE)
+            if len(raw) == FRAME_SIZE:
+                vals = struct.unpack(FRAME_FMT, raw)
+                if vals[0] == VFRM: codec_id = vals[4]
     fps = h.fps_num / h.fps_den
     n_i = sum(1 for _, t in idx if t == 0)
     n_p = sum(1 for _, t in idx if t == 1)
     n_r = sum(1 for _, t in idx if t == 2)
     return {
-        'format': 'GHV', 'version': f'{h.major}.{h.minor}', 'video_codec': 'GHVC3',
+        'format': 'GHV', 'version': f'{h.major}.{h.minor}', 'video_codec': f'GHVC{codec_id}' if codec_id else 'unknown',
         'width': h.width, 'height': h.height, 'fps': fps, 'frames': h.frame_count,
         'i_frames': n_i, 'p_frames': n_p, 'repeat_frames': n_r, 'quality': h.quality,
         'audio_codec': 'GHAC1' if h.audio_codec == 4 else 'none',

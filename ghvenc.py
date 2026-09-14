@@ -4,16 +4,21 @@ import argparse, binascii, json, os, shutil, struct, subprocess, tempfile, time
 from fractions import Fraction
 from pathlib import Path
 
-from ghv.codec3 import quantize_yuv420, encode_frame as encode_frame3
+from ghv.codec4 import quantize_yuv420, encode_frame as encode_frame4
 from ghv.gha import encode_pcm16le as encode_ghac1
 from ghv.container import (Header, HEADER_SIZE, FRAME_FMT, AUDIO_FMT,
                            INDEX_HEAD_FMT, INDEX_ENTRY_FMT, VFRM, AUD0, INDX,
                            pack_motion)
 
 PRESETS = {
-    'fast':     dict(quality=72, keyint=60,  motion=4,  scene=31.0),
-    'balanced': dict(quality=78, keyint=90,  motion=8,  scene=30.0),
-    'quality':  dict(quality=88, keyint=120, motion=10, scene=29.0),
+    # GHVC4's byte-delta residual coder currently compresses ordinary footage
+    # better *and* much faster with zero global-motion search. The codec still
+    # supports --motion-range for experiments, but the default presets keep it
+    # off until block motion lands in GHVC5.
+    'veryfast': dict(quality=68, keyint=60,  motion=0, scene=32.0),
+    'fast':     dict(quality=74, keyint=75,  motion=0, scene=31.0),
+    'balanced': dict(quality=78, keyint=90,  motion=0, scene=30.0),
+    'quality':  dict(quality=88, keyint=120, motion=0, scene=29.0),
 }
 
 
@@ -73,8 +78,8 @@ def find_native_core() -> str | None:
 
 def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: int,
                         keyint: int, scene_threshold: float, motion_range: int,
-                        est_frames: int, f, fps_num: int, fps_den: int):
-    """Stream GHVC3 records straight into the final GHV container.
+                        est_frames: int, f, fps_num: int, fps_den: int, threads: int = 0):
+    """Stream GHVC4 records straight into the final GHV container.
 
     v0.3 wrote the complete native intermediate to a temporary file and then
     copied it into the container. GHV 0.4 removes that double I/O and the huge
@@ -87,18 +92,21 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
     err_tmp = tempfile.TemporaryFile(mode='w+b')
     cmd = [native_core, str(w), str(h), str(quality), str(keyint), str(scene_threshold),
            str(motion_range), '-', str(est_frames)]
-    core = subprocess.Popen(cmd, stdin=ff.stdout, stdout=subprocess.PIPE, stderr=err_tmp, bufsize=1024 * 1024)
+    env = os.environ.copy()
+    if threads and threads > 0:
+        env['OMP_NUM_THREADS'] = str(threads)
+    core = subprocess.Popen(cmd, stdin=ff.stdout, stdout=subprocess.PIPE, stderr=err_tmp, bufsize=1024 * 1024, env=env)
     ff.stdout.close()
     assert core.stdout is not None
     count = 0
     t0 = time.perf_counter()
     try:
         head = core.stdout.read(20)
-        if len(head) != 20 or head[:4] != b'GHS4':
-            raise RuntimeError('bad GHVC3 native stream header')
+        if len(head) != 20 or head[:4] != b'GHS5':
+            raise RuntimeError('bad GHVC4 native stream header')
         ver, sw, sh, raw_frame_size = struct.unpack_from('<IIII', head, 4)
-        if ver != 3 or sw != w or sh != h or raw_frame_size != w * h * 3 // 2:
-            raise RuntimeError('GHVC3 native stream metadata mismatch')
+        if ver != 4 or sw != w or sh != h or raw_frame_size != w * h * 3 // 2:
+            raise RuntimeError('GHVC4 native stream metadata mismatch')
 
         while True:
             rh = core.stdout.read(16)
@@ -115,7 +123,7 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
                 raise RuntimeError('truncated GHVC3 native frame payload')
             off = f.tell()
             pts_us = (count * fps_den * 1_000_000) // fps_num
-            f.write(struct.pack(FRAME_FMT, VFRM, count, pts_us, typ, 3, pack_motion(dx, dy),
+            f.write(struct.pack(FRAME_FMT, VFRM, count, pts_us, typ, 4, pack_motion(dx, dy),
                                 raw_size, packed_size, checksum))
             f.write(payload)
             frame_offsets.append((off, typ))
@@ -135,9 +143,9 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
         core_err = err_tmp.read().decode('utf-8', 'replace')
         if core_err.strip():
             for line in core_err.splitlines():
-                print('[GHV native] ' + line, flush=True)
+                print('[GHV native4] ' + line, flush=True)
         if rc_core != 0:
-            raise RuntimeError(f'Native GHVC3 core failed with exit {rc_core}:\n{core_err}')
+            raise RuntimeError(f'Native GHVC4 core failed with exit {rc_core}:\n{core_err}')
         if rc_ff != 0:
             raise RuntimeError('FFmpeg video decode failed:\n' + err)
         return count, frame_offsets
@@ -150,7 +158,7 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
 
 
 def main():
-    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV 0.4 / GHVC3')
+    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV 0.5 / GHVC4')
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
@@ -160,6 +168,7 @@ def main():
     ap.add_argument('--scene-threshold', type=float, default=None)
     ap.add_argument('--audio-quality', choices=['hq', 'compact'], default='hq')
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
+    ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
     ap.add_argument('--no-audio', action='store_true')
     ap.add_argument('--audio-rate', type=int, default=0, help='0 = preserve source sample rate')
     ap.add_argument('--ffmpeg')
@@ -194,7 +203,7 @@ def main():
                     frame_count=0, keyint=keyint, quality=quality,
                     audio_rate=0, audio_channels=0, audio_codec=0, audio_samples=0,
                     frames_offset=HEADER_SIZE, audio_offset=0, index_offset=0,
-                    duration_us=0, major=0, minor=4)
+                    duration_us=0, major=0, minor=5)
 
     vf = f'crop={w}:{h}:0:0'
     video_cmd = [ffmpeg, '-v', 'error', '-i', args.input, '-map', '0:v:0', '-an',
@@ -202,11 +211,11 @@ def main():
 
     native_core = find_native_core() if args.native != 'off' else None
     if args.native == 'on' and not native_core:
-        raise SystemExit('Native GHVC3 core requested but not built. Run build_native_windows.bat, or use --native off.')
+        raise SystemExit('Native GHVC4 core requested but not built. Run build_native_windows.bat, or use --native off.')
     use_native = bool(native_core)
     engine = 'Native C++' if use_native else 'Fast NumPy'
-    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC3 | {args.preset} | engine={engine}', flush=True)
-    print(f'[GHV] quality={quality} keyint={keyint} motion=±{motion_range} scene={scene_threshold:g}', flush=True)
+    print(f'[GHV] {w}x{h} @ {float(fps):.3f} fps | GHVC4 | {args.preset} | engine={engine}', flush=True)
+    print(f'[GHV] quality={quality} keyint={keyint} motion=±{motion_range} scene={scene_threshold:g} threads={args.threads or "auto"}', flush=True)
     if est_frames:
         print(f'[GHV] Estimated frames: {est_frames}', flush=True)
     if not use_native:
@@ -224,7 +233,7 @@ def main():
             if use_native:
                 frame_count, frame_offsets = encode_video_native(
                     video_cmd, native_core, w, h, quality, keyint, scene_threshold,
-                    motion_range, est_frames, f, fps_num, fps_den)
+                    motion_range, est_frames, f, fps_num, fps_den, max(0, args.threads))
             else:
                 prev = None
                 proc = subprocess.Popen(video_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1024 * 1024)
@@ -238,18 +247,18 @@ def main():
                         raise RuntimeError(f'truncated raw frame: {len(raw)} / {frame_bytes}')
                     yuv = quantize_yuv420(raw, w, h, quality)
                     force_i = (frame_count % keyint == 0)
-                    typ, packed, raw_size, dx, dy = encode_frame3(
-                        yuv, prev, w, h, force_i, scene_threshold, motion_range)
+                    typ, packed, raw_size, dx, dy, recon = encode_frame4(
+                        yuv, prev, w, h, quality, force_i, scene_threshold, motion_range)
                     if typ == 2:
                         repeats += 1
-                    checksum = binascii.crc32(yuv) & 0xFFFFFFFF
+                    checksum = binascii.crc32(recon) & 0xFFFFFFFF
                     off = f.tell()
                     pts_us = (frame_count * fps_den * 1_000_000) // fps_num
-                    f.write(struct.pack(FRAME_FMT, VFRM, frame_count, pts_us, typ, 3,
+                    f.write(struct.pack(FRAME_FMT, VFRM, frame_count, pts_us, typ, 4,
                                         pack_motion(dx, dy), raw_size, len(packed), checksum))
                     f.write(packed)
                     frame_offsets.append((off, typ))
-                    prev = yuv
+                    prev = recon
                     frame_count += 1
                     if frame_count % 15 == 0:
                         elapsed = max(.001, time.perf_counter() - t0)
@@ -296,7 +305,7 @@ def main():
                             frame_count=frame_count, keyint=keyint, quality=quality,
                             audio_rate=audio_rate, audio_channels=audio_channels, audio_codec=audio_codec,
                             audio_samples=audio_samples, frames_offset=HEADER_SIZE, audio_offset=audio_offset,
-                            index_offset=index_offset, duration_us=duration_us, major=0, minor=4)
+                            index_offset=index_offset, duration_us=duration_us, major=0, minor=5)
             f.seek(0)
             f.write(header.pack())
             f.flush()
