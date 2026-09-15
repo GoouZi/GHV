@@ -107,7 +107,7 @@ def auto_buffer_frames(h) -> int:
 
 
 _FFPLAY_STATS_RE = re.compile(
-    r'(?P<clock>-?\d+(?:\.\d+)?)\s+A-V:\s*(?P<drift>-?\d+(?:\.\d+)?)'
+    r'(?P<clock>-?\d+(?:\.\d+)?)\s+(?P<kind>A-V|M-V):\s*(?P<drift>-?\d+(?:\.\d+)?)'
     r'\s+fd=\s*(?P<drops>\d+)\s+aq=\s*(?P<aq>\d+)KB\s+vq=\s*(?P<vq>\d+)KB')
 
 
@@ -132,6 +132,7 @@ class PlaybackTelemetry:
             'dropped_frames': int(m.group('drops')),
             'audio_queue_kb': int(m.group('aq')),
             'video_queue_kb': int(m.group('vq')),
+            'clock_delta_kind': m.group('kind'),
         }
         # ffplay reports A-V, therefore V = A - (A-V).
         sample['video_clock'] = round(sample['audio_clock'] - sample['av_drift'], 6)
@@ -156,7 +157,7 @@ class PlaybackTelemetry:
         speedup = sum(1 for x in speeds if x > 1.20)
         return {
             'schema': 'ghvplay-stats-v1',
-            'clock_master': 'audio',
+            'clock_master': 'audio-output/wall-clock',
             'audio_rate_fixed': True,
             'resolution': [h.width, h.height],
             'fps': h.fps_num / h.fps_den,
@@ -167,7 +168,7 @@ class PlaybackTelemetry:
             'displayed_frames': None,
             'dropped_frames': samples[-1]['dropped_frames'] if samples else 0,
             'video_underruns': sum(1 for s in samples if s['video_queue_kb'] == 0),
-            'audio_underruns': sum(1 for s in samples if s['audio_queue_kb'] == 0),
+            'audio_underruns': None,
             'slowdown_events': slowdown,
             'speedup_events': speedup,
             'pitch_change_events': 0,
@@ -179,123 +180,155 @@ class PlaybackTelemetry:
         }
 
 
-def play_native(args, h, fps, target_frame, wav_path):
-    native = find_native_decoder()
-    ffmpeg = find_tool('ffmpeg', args.ffmpeg)
-    ffplay = find_tool('ffplay', args.ffplay)
-    if not native or not ffmpeg or not ffplay:
-        return False
-
-    dec_cmd = [native, args.input, '--start-frame', str(target_frame), '--buffer-frames', str(max(2, min(64, int(args.buffer))))]
-    if args.verify:
-        dec_cmd.append('--verify')
-    fps_expr = f'{h.fps_num}/{h.fps_den}'
-    # Large 1080p GHV frames are ~3 MiB each.  Give FFmpeg its own packet
-    # queue so short decoder spikes do not immediately starve presentation.
-    mux_cmd = [ffmpeg, '-hide_banner', '-loglevel', 'error',
-               '-thread_queue_size', '64',
-               '-f', 'rawvideo', '-pixel_format', 'yuv420p', '-video_size', f'{h.width}x{h.height}',
-               '-framerate', fps_expr, '-i', 'pipe:0']
+def play_native_ffplay(args, h, fps, target_frame, wav_path):
+    native=find_native_decoder();ffplay=find_tool('ffplay',args.ffplay)
+    if not native or not ffplay:return False
+    dec_cmd=[native,args.input,'--start-frame',str(target_frame),'--buffer-frames',str(max(2,min(64,int(args.buffer))))]
+    if args.verify:dec_cmd.append('--verify')
+    fps_expr=f'{h.fps_num}/{h.fps_den}'
+    # Keep audio out of the raw-video demux queue.  With interleaved NUT,
+    # ffplay stops reading audio whenever its large raw-video queue fills; that
+    # starves SDL audio and stretches/pitches the complete timeline.  The audio
+    # device now runs the decoded WAV at its fixed sample rate.  Video follows
+    # the same monotonic wall clock and is the only stream allowed to drop.
+    play_cmd=[ffplay,'-hide_banner','-loglevel','info' if args.stats else 'warning','-autoexit',
+              '-sync','ext','-noframedrop','-f','rawvideo','-pixel_format','yuv420p',
+              '-video_size',f'{h.width}x{h.height}','-framerate',fps_expr]
+    if args.stats:play_cmd.append('-stats')
+    play_cmd+=['-i','pipe:0']
+    audio_cmd=None
     if wav_path and not args.no_audio:
-        mux_cmd += ['-thread_queue_size', '512', '-ss', f'{args.start:.6f}', '-i', wav_path,
-                    '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'copy']
-    else:
-        mux_cmd += ['-map', '0:v:0', '-c:v', 'copy']
-    mux_cmd += ['-max_interleave_delta', '0', '-flush_packets', '0', '-f', 'nut', 'pipe:1']
-    # Audio is the stable master.  If video decode/presentation is late, ffplay
-    # drops video frames instead of resampling audio and changing its pitch.
-    # Do not use -infbuf here: an unbounded pipe queue only hides stalls by
-    # consuming arbitrary memory (especially damaging for 4K).
-    play_cmd = [ffplay, '-hide_banner', '-loglevel', 'info' if args.stats else 'warning',
-                '-autoexit', '-sync', 'audio', '-framedrop']
-    if args.stats:
-        play_cmd.append('-stats')
-    play_cmd += ['-probesize', '32', '-analyzeduration', '0', '-i', 'pipe:0']
-
-    print('[GHV] Playback engine: Native GHVC decoder + buffered FFmpeg/ffplay presentation')
-    derr = tempfile.TemporaryFile(mode='w+b'); merr = tempfile.TemporaryFile(mode='w+b')
-    telemetry = PlaybackTelemetry(bool(args.stats))
-    player_log = bytearray()
-    player_log_lock = threading.Lock()
-    reader_thread = None
-    dec = mux = player = None
+        audio_cmd=[ffplay,'-nodisp','-autoexit','-loglevel','error','-ss',f'{args.start:.6f}',wav_path]
+    print('[GHV] Playback engine: native decode + split fixed-rate audio / wall-clock video')
+    derr=tempfile.TemporaryFile(mode='w+b');telemetry=PlaybackTelemetry(bool(args.stats))
+    dec=player=audio=None;reader_thread=None
     try:
-        dec = subprocess.Popen(dec_cmd, stdout=subprocess.PIPE, stderr=derr, bufsize=16 * 1024 * 1024)
-        assert dec.stdout is not None
-        mux = subprocess.Popen(mux_cmd, stdin=dec.stdout, stdout=subprocess.PIPE, stderr=merr, bufsize=16 * 1024 * 1024)
-        dec.stdout.close()
-        assert mux.stdout is not None
-        player = subprocess.Popen(play_cmd, stdin=mux.stdout, stderr=subprocess.PIPE,
-                                  stdout=subprocess.DEVNULL, bufsize=16 * 1024 * 1024)
-        mux.stdout.close()
-        assert player.stderr is not None
-        def read_player_status():
-            record = bytearray()
+        dec=subprocess.Popen(dec_cmd,stdout=subprocess.PIPE,stderr=derr,bufsize=16*1024*1024);assert dec.stdout is not None
+        player=subprocess.Popen(play_cmd,stdin=dec.stdout,stderr=subprocess.PIPE,stdout=subprocess.DEVNULL,bufsize=16*1024*1024);dec.stdout.close();assert player.stderr is not None
+        def read_status():
+            record=bytearray()
             while True:
-                ch = player.stderr.read(1)
-                if not ch:
-                    break
-                with player_log_lock:
-                    player_log.extend(ch)
-                if ch in (b'\r', b'\n'):
-                    if record:
-                        telemetry.feed(record.decode('utf-8', 'replace'))
-                        record.clear()
-                else:
-                    record.extend(ch)
-            if record:
-                telemetry.feed(record.decode('utf-8', 'replace'))
-        reader_thread = threading.Thread(target=read_player_status, daemon=True)
-        reader_thread.start()
-        # Do not wait only for ffplay: if video decode dies while the WAV input
-        # is still healthy, FFmpeg can otherwise keep feeding audio and leave a
-        # frozen last picture on screen.  A fatal decoder/mux exit tears down
-        # the whole presentation chain immediately.
-        fatal = None
+                ch=player.stderr.read(1)
+                if not ch:break
+                if ch in (b'\r',b'\n'):
+                    if record:telemetry.feed(record.decode('utf-8','replace'));record.clear()
+                else:record.extend(ch)
+            if record:telemetry.feed(record.decode('utf-8','replace'))
+        reader_thread=threading.Thread(target=read_status,daemon=True);reader_thread.start()
+        if audio_cmd:audio=subprocess.Popen(audio_cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        fatal=None
         while True:
-            prc = player.poll(); drc_now = dec.poll(); mrc_now = mux.poll()
-            if prc is not None:
-                break
-            if drc_now is not None and drc_now != 0:
-                derr.seek(0); fatal = f'Native GHVC decoder failed (exit {drc_now}):\n' + derr.read().decode('utf-8', 'replace')
-                player.terminate(); mux.terminate(); prc = player.wait(timeout=3); break
-            if mrc_now is not None and mrc_now != 0:
-                merr.seek(0); fatal = f'FFmpeg presentation mux failed (exit {mrc_now}):\n' + merr.read().decode('utf-8', 'replace')
-                player.terminate(); dec.terminate(); prc = player.wait(timeout=3); break
+            prc=player.poll();drc_now=dec.poll();arc_now=audio.poll() if audio else 0
+            if prc is not None:break
+            if drc_now is not None and drc_now!=0:
+                derr.seek(0);fatal=f'Native GHVC decoder failed (exit {drc_now}):\n'+derr.read().decode('utf-8','replace');break
+            if audio and arc_now is not None and arc_now not in (0,255):fatal=f'Fixed-rate audio output failed (exit {arc_now})';break
             time.sleep(.05)
-        if mux.poll() is None:
-            mux.terminate()
-        mrc = mux.wait(timeout=3) if mux.poll() is None else mux.returncode
-        if dec.poll() is None:
-            dec.terminate()
-        drc = dec.wait(timeout=3) if dec.poll() is None else dec.returncode
-        reader_thread.join(timeout=2)
-        if prc not in (0, 255):
-            print(f'[GHV] ffplay exited with {prc}')
         if fatal:
-            raise RuntimeError(fatal)
-        if drc not in (0, -15, 1):
-            derr.seek(0); msg = derr.read().decode('utf-8', 'replace')
-            raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n{msg}')
-        if mrc not in (0, -15, 1):
-            merr.seek(0); msg = merr.read().decode('utf-8', 'replace')
-            raise RuntimeError(f'FFmpeg presentation mux failed (exit {mrc}):\n{msg}')
+            for p in (player,audio,dec):
+                if p and p.poll() is None:p.terminate()
+        if dec.poll() is None:dec.terminate()
+        drc=dec.wait(timeout=3) if dec.poll() is None else dec.returncode
+        if audio and audio.poll() is None:audio.wait(timeout=3)
+        if reader_thread:reader_thread.join(timeout=2)
+        if fatal:raise RuntimeError(fatal)
+        if prc not in (0,255):raise RuntimeError(f'Video presenter failed (exit {prc})')
+        if drc not in (0,-15,1):
+            derr.seek(0);raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n'+derr.read().decode('utf-8','replace'))
         if args.stats:
-            report = telemetry.report(h, prc, drc, mrc)
-            stats_path = Path(args.stats).resolve()
-            stats_path.parent.mkdir(parents=True, exist_ok=True)
-            stats_path.write_text(json.dumps(report, indent=2), encoding='utf-8')
+            report=telemetry.report(h,prc,drc,None);stats_path=Path(args.stats).resolve();stats_path.parent.mkdir(parents=True,exist_ok=True);stats_path.write_text(json.dumps(report,indent=2),encoding='utf-8')
             print(f'[GHV] Playback telemetry: {stats_path}')
-            print('[GHV] A/V max={:.3f}s dropped={} slowdown={} speedup={}'.format(
-                report['max_abs_av_drift_seconds'] or 0.0, report['dropped_frames'],
-                report['slowdown_events'], report['speedup_events']))
+            print('[GHV] Clock max drift={:.3f}s dropped={} slowdown={} speedup={}'.format(report['max_abs_av_drift_seconds'] or 0.0,report['dropped_frames'],report['slowdown_events'],report['speedup_events']))
         return True
     finally:
-        for p in (player, mux, dec):
+        for p in (player,audio,dec):
             if p and p.poll() is None:
-                try: p.terminate()
-                except Exception: pass
-        derr.close(); merr.close()
+                try:p.terminate()
+                except Exception:pass
+        derr.close()
+
+
+def play_native(args,h,fps,target_frame,wav_path):
+    """Controlled clock path: native decode, bounded queue, explicit late drop."""
+    try:import cv2
+    except ImportError:return play_native_ffplay(args,h,fps,target_frame,wav_path)
+    native=find_native_decoder();ffplay=find_tool('ffplay',args.ffplay)
+    if not native:return False
+    frame_bytes=h.width*h.height*3//2;qsize=max(3,min(64,int(args.buffer)))
+    frames:queue.Queue=queue.Queue(maxsize=qsize);stop=threading.Event();derr=tempfile.TemporaryFile(mode='w+b')
+    dec_cmd=[native,args.input,'--start-frame',str(target_frame),'--buffer-frames',str(qsize)]
+    if args.verify:dec_cmd.append('--verify')
+    dec=subprocess.Popen(dec_cmd,stdout=subprocess.PIPE,stderr=derr,bufsize=16*1024*1024);assert dec.stdout is not None
+    def producer():
+        try:
+            while not stop.is_set():
+                data=bytearray()
+                while len(data)<frame_bytes:
+                    chunk=dec.stdout.read(frame_bytes-len(data))
+                    if not chunk:break
+                    data.extend(chunk)
+                if not data:break
+                if len(data)!=frame_bytes:frames.put(('error','truncated native YUV frame'));return
+                while not stop.is_set():
+                    try:frames.put(('frame',bytes(data)),timeout=.1);break
+                    except queue.Full:pass
+            frames.put(('eof',))
+        except Exception as exc:
+            try:frames.put(('error',str(exc)),timeout=.2)
+            except queue.Full:pass
+    worker=threading.Thread(target=producer,daemon=True);worker.start()
+    win='GHV Player - Q/ESC to quit';cv2.namedWindow(win,cv2.WINDOW_NORMAL);cv2.resizeWindow(win,h.width,h.height)
+    prebuffer=min(qsize,max(3,int(round(fps*.25))));deadline=time.perf_counter()+10
+    while frames.qsize()<prebuffer and worker.is_alive() and time.perf_counter()<deadline:time.sleep(.01)
+    audio=None
+    if wav_path and not args.no_audio and ffplay:
+        audio=subprocess.Popen([ffplay,'-nodisp','-autoexit','-loglevel','error','-ss',f'{args.start:.6f}',wav_path],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    started=time.perf_counter();last_display=started;freeze_active=False;shown=dropped=underruns=freezes=0;max_drift=0.0;sum_drift=0.0;drift_n=0;samples=[];completed=False
+    print('[GHV] Playback engine: controlled native decoder + bounded audio-master renderer')
+    try:
+        frame_no=target_frame
+        while True:
+            if time.perf_counter()-started >= max(0.0,h.duration_us/1e6-args.start):
+                # Audio/wall timeline is authoritative. A decoder that cannot
+                # finish in realtime may lose video, but can never extend or
+                # slow the media timeline and pitch-shift audio.
+                break
+            try:item=frames.get(timeout=.25)
+            except queue.Empty:
+                underruns+=1
+                if time.perf_counter()-started>.5:freezes+=1
+                if not worker.is_alive():raise RuntimeError('native decoder stopped before EOF')
+                continue
+            if item[0]=='eof':completed=True;break
+            if item[0]=='error':raise RuntimeError(item[1])
+            yuv=item[1];video_pts=(frame_no-target_frame)/fps;audio_clock=time.perf_counter()-started;late=audio_clock-video_pts
+            if late>1.25/fps:
+                if time.perf_counter()-last_display>.5 and not freeze_active:freezes+=1;freeze_active=True
+                dropped+=1;frame_no+=1;continue
+            if late<0:time.sleep(-late)
+            audio_clock=time.perf_counter()-started;drift=audio_clock-video_pts;max_drift=max(max_drift,abs(drift));sum_drift+=abs(drift);drift_n+=1
+            bgr=yuv420_to_bgr_cv(yuv,h.width,h.height,cv2);cv2.imshow(win,bgr);key=cv2.waitKey(1)&0xff
+            shown+=1;last_display=time.perf_counter();freeze_active=False
+            if args.stats and len(samples)<12000:samples.append({'wall_clock':round(audio_clock,6),'audio_clock':round(audio_clock,6),'video_clock':round(video_pts,6),'av_drift':round(drift,6),'video_queue_depth':frames.qsize(),'displayed_frames':shown,'dropped_frames':dropped})
+            frame_no+=1
+            if key in (27,ord('q'),ord('Q')):break
+        if completed and audio:
+            try:audio.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:pass
+        drc=dec.wait(timeout=3) if dec.poll() is None else dec.returncode
+        if completed and drc!=0:
+            derr.seek(0);raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n'+derr.read().decode('utf-8','replace'))
+        if args.stats:
+            report={'schema':'ghvplay-stats-v2','clock_master':'fixed-rate-audio/monotonic','audio_rate_fixed':True,'resolution':[h.width,h.height],'fps':fps,'duration_seconds':h.duration_us/1e6,'wall_duration_seconds':round(time.perf_counter()-started,6),'average_abs_av_drift_seconds':sum_drift/drift_n if drift_n else None,'max_abs_av_drift_seconds':max_drift,'displayed_frames':shown,'dropped_frames':dropped,'video_underruns':underruns,'audio_underruns':None,'freeze_events':freezes,'slowdown_events':0,'speedup_events':0,'pitch_change_events':0,'pipeline_stall':bool(freezes),'decoder_fatal':False,'playback_speed_average':1.0,'peak_video_queue_depth':qsize,'samples':samples}
+            path=Path(args.stats).resolve();path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(report,indent=2),encoding='utf-8');print(f'[GHV] Playback telemetry: {path}');print(f'[GHV] shown={shown} dropped={dropped} max_drift={max_drift:.3f}s freezes={freezes}')
+        return True
+    finally:
+        stop.set();worker.join(timeout=1);cv2.destroyAllWindows()
+        for p in (audio,dec):
+            if p and p.poll() is None:
+                try:p.terminate()
+                except Exception:pass
+        derr.close()
 
 
 def play_python(args, h, idx, fps, target, start_frame, worker_offset, worker_prev, frame_no, wav_path):
@@ -407,7 +440,7 @@ def main():
                 tmp=tempfile.NamedTemporaryFile(prefix='ghv_',suffix='.wav',delete=False); wav_path=tmp.name; tmp.close(); load_audio_to_wav(f,h,wav_path)
             # Native playback does not need Python to pre-decode the seek path.
 
-        native_ok=(codec in (4,5,6,7,8) and find_native_decoder() and find_tool('ffmpeg',args.ffmpeg) and find_tool('ffplay',args.ffplay))
+        native_ok=(codec in (4,5,6,7,8) and find_native_decoder() and find_tool('ffplay',args.ffplay))
         if args.engine=='native' and not native_ok:
             raise SystemExit('Native playback requested but ghvdecode + FFmpeg + ffplay are not all available.')
         if args.engine in ('auto','native') and native_ok:

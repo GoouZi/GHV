@@ -11,3 +11,4 @@ native/build/
 native/bin/Release/
 releases/*.zip
 benchmarks/output/
+benchmarks/visuals/

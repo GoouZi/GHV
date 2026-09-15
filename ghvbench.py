@@ -29,14 +29,16 @@ class PeakMemory:
 def probe_source(path: Path):
     ffprobe=shutil.which('ffprobe')
     if not ffprobe:return {}
-    cmd=[ffprobe,'-v','error','-select_streams','v:0','-show_entries',
-         'stream=width,height,avg_frame_rate,bit_rate:format=duration,size,bit_rate','-of','json',str(path)]
+    cmd=[ffprobe,'-v','error','-show_entries',
+         'stream=codec_type,width,height,avg_frame_rate,bit_rate,sample_rate,channels:format=duration,size,bit_rate','-of','json',str(path)]
     try:
         data=json.loads(subprocess.check_output(cmd,text=True,encoding='utf-8',errors='replace'))
-        v=(data.get('streams') or [{}])[0];fmt=data.get('format') or {}
-        return {'width':int(v.get('width') or 0),'height':int(v.get('height') or 0),
+        streams=data.get('streams') or [];v=next((s for s in streams if s.get('codec_type')=='video'),{});au=next((s for s in streams if s.get('codec_type')=='audio'),{});fmt=data.get('format') or {}
+        return {'size_bytes':int(fmt.get('size') or path.stat().st_size),'width':int(v.get('width') or 0),'height':int(v.get('height') or 0),
                 'fps':v.get('avg_frame_rate'),'duration_seconds':float(fmt.get('duration') or 0),
-                'video_bitrate_bps':int(v.get('bit_rate') or 0),'container_bitrate_bps':int(fmt.get('bit_rate') or 0)}
+                'video_bitrate_bps':int(v.get('bit_rate') or 0),'container_bitrate_bps':int(fmt.get('bit_rate') or 0),
+                'audio_sample_rate':int(au.get('sample_rate') or 0),'audio_channels':int(au.get('channels') or 0),
+                'audio_bitrate_bps':int(au.get('bit_rate') or 0)}
     except Exception:return {}
 
 
@@ -93,6 +95,7 @@ def main():
     ap.add_argument('--decode-frames',type=int,default=180,help='decode benchmark frames; 0 = full file')
     ap.add_argument('--quality-metrics',action='store_true',help='measure full-file PSNR and SSIM')
     ap.add_argument('--report-json',help='also save the structured report to this path')
+    ap.add_argument('--playback-runs',type=int,default=0,help='run controlled full playback N times and include telemetry')
     ap.add_argument('--keep', action='store_true', help='keep auto-created output')
     ap.add_argument('--json', action='store_true')
     args = ap.parse_args()
@@ -153,6 +156,13 @@ def main():
                       encoder_elapsed_seconds=float(result.group(4)), avg_fps=float(result.group(5)))
     report['decode_fps'],report['decode_peak_memory_bytes']=measure_decode(out,args.decode_frames)
     if args.quality_metrics:report.update(measure_quality(src,out))
+    if args.playback_runs>0:
+        report['playback']=[]
+        for run in range(1,args.playback_runs+1):
+            stats=out.with_suffix(f'.playback-{run}.json')
+            pp=subprocess.run([sys.executable,str(ROOT/'ghvplay.py'),str(out),'--engine','native','--stats',str(stats)],cwd=ROOT)
+            if pp.returncode:report['playback'].append({'run':run,'passed':False,'exit_code':pp.returncode});continue
+            data=json.loads(stats.read_text(encoding='utf-8'));data.pop('samples',None);data['run']=run;data['passed']=not data.get('freeze_events') and not data.get('slowdown_events') and not data.get('speedup_events') and not data.get('pitch_change_events');report['playback'].append(data)
     if args.report_json:
         rp=Path(args.report_json);rp.parent.mkdir(parents=True,exist_ok=True)
         rp.write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
