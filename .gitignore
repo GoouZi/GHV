@@ -1,0 +1,40 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# C/C++ build output
+build/
+out/
+dist/
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Generated media / benchmark output
+*.ghv
+*.gha
+*.raw
+*.yuv
+*.pcm
+benchmark_output/
+test_output/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
