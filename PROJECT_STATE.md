@@ -147,6 +147,22 @@ See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` and the adjacent JSON report.
 
 See `benchmarks/GHVC8_BENCHMARK_2026-09-15.md` and the A/B/C JSON reports.
 
+## GHVC8 native performance milestone (2026-09-15)
+
+The bitstream and reconstructed pixels are unchanged. Full-file SHA-256 hashes
+for all A/B/C outputs match the earlier GHVC8 files exactly.
+
+- Test A: encode **140.443 fps**, verified decode **448.172 fps**, 151.0 MiB encode peak.
+- Test B: encode **45.464 fps**, verified decode **141.190 fps**, controlled playback 3/3 with zero clock/freeze events.
+- Test C: encode **9.777 fps**, verified decode **30.213 fps / 1.259x realtime**, 834.3 MiB encode peak and 68.6 MiB decode peak.
+- Test C full playback: PASS, 4345 displayed / 7 late drops, zero freeze/pitch/slowdown/speedup, 48.4 ms max drift.
+
+The encoder profiler identifies RD candidate evaluation as the dominant CPU
+hotspot. The decoder is now dominated by GHVC8 P-frame coefficient
+materialization/parse and reconstruction; verified CRC is still 13.7% of Test
+C wall time even after slicing-by-8 acceleration. See
+`benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
+
 ## Reproduce
 
 ```text
@@ -160,9 +176,9 @@ python ghvplay.py output.ghv --engine native
 GHVC8 achieved the `<300 MiB` Test A stage, but remains far from OGV/Theora.
 Highest-value next work:
 
-1. hierarchical/coarse-to-fine motion search and optional 32x32/8x8 partitions;
+1. reduce RD candidate work with predictor-first early accept and hierarchical search;
 2. replace the remaining escape levels with measured adaptive Rice/canonical Huffman coding;
-3. reduce encoder allocations and parallelize/pipe I-frame work;
+3. compact/reuse decoder coefficient scratch and continue SIMD evaluation;
 4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;
 5. expose `libghv` decoder/player APIs and remove the long-term ffplay dependency;
 6. capture peak memory, CPU utilization, and rendered dropped-frame/A/V drift metrics.

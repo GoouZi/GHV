@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — GHVC8 Native Performance
+
+- Added `--profile` encode/decode stage timing and structured benchmark capture with CPU/core/GPU inventory.
+- Removed per-macroblock motion-search heap allocation and cached per-frame quantization tables.
+- Removed the duplicate selected-block forward transform while preserving byte-identical GHVC8 output.
+- Added fast interior prediction and zero-residual reconstruction paths.
+- Added intra dependency-wavefront reconstruction and a shared slicing-by-8 IEEE CRC-32 implementation.
+- Preserved GHVC4-8 decode compatibility; all versioned self-tests pass.
+- Test A encode improved 76.338 -> **140.443 fps** and verified decode 283.756 -> **448.172 fps**.
+- Test B encode improved 25.826 -> **45.464 fps** and verified decode 81.341 -> **141.190 fps**; playback remained stable 3/3.
+- Test C encode improved 6.162 -> **9.777 fps** and verified decode 18.728 -> **30.213 fps**, enabling a full stable 4K playback pass.
+- A/B/C output bytes, PSNR, SSIM, and SHA-256 remain exactly unchanged from the prior GHVC8 milestone.
+
 ## GHV 0.8 / GHA 0.2 — RD Motion and Stable Audio Clock
 
 - Added native GHVC8/GTP8 with 16x16 local motion compensation.

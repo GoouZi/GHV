@@ -1,4 +1,4 @@
-# GHV 0.7 + GHA 0.2
+# GHV 0.8 + GHA 0.2
 
 **GHV — Goou_Zi High-efficiency Video** (`.ghv`)  
 **GHA — Goou_Zi High-efficiency Audio** (`.gha`)
@@ -72,6 +72,19 @@ Development machine, Balanced q78 with GHAC1 HQ audio. These are full fixed-vide
 | B 1920x1080 | GHVC6 | 1350.329 MiB | 100.04 fps | 82.8 fps | 48.374 dB | 0.995662 |
 | B 1920x1080 | **GHVC7** | **906.208 MiB** | 48.23 fps | **83.8 fps** | 46.894 dB | 0.991389 |
 
+The latest profile-guided GHVC8 implementation is byte-identical to the first
+GHVC8 release but substantially faster:
+
+| Test | GHVC8 size | Encode old -> optimized | Verified decode old -> optimized |
+|---|---:|---:|---:|
+| A 960x544 | 288.986 MiB | 76.34 -> **140.44 fps** | 283.76 -> **448.17 fps** |
+| B 1920x1080 | 553.891 MiB | 25.83 -> **45.46 fps** | 81.34 -> **141.19 fps** |
+| C 3840x2160 | 4081.516 MiB | 6.16 -> **9.78 fps** | 18.73 -> **30.21 fps** |
+
+Test C now exceeds realtime decode with CRC verification and completed a full
+4K24 controlled playback run with no freeze or audio-speed event. See
+`benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
+
 GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about half as fast as GHVC6, while optimized decode is equal or faster. Both Test B outputs completed full 104.118 s native A/V playback without a freeze on this machine. See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` for method and limitations.
 
 ## Windows quick start
@@ -95,6 +108,7 @@ python ghvinfo.py output.ghv
 python ghvrepair.py output.ghv
 python ghvbench.py input.mp4 output.ghv --preset balanced
 python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --profile --json
 ```
 
 For a large 1080p file, Auto is now the default. You can still force a larger cushion:

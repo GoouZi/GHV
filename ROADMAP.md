@@ -8,6 +8,9 @@
 - Audio-master/monotonic controlled renderer with bounded queues and JSON telemetry.
 - Test A 288.986 MiB at 45.421 dB / 0.984480.
 - Test B 553.891 MiB at 46.671 dB / 0.990330; three controlled playback passes.
+- Profile-guided native milestone: A/B/C encode 140.44/45.46/9.78 fps and
+  verified decode 448.17/141.19/30.21 fps with byte-identical output.
+- Test C now completes controlled 4K24 playback without freeze or audio-speed events.
 
 ## Retained — GHV 0.7
 
@@ -37,7 +40,7 @@ Implemented foundations and continuing research:
 
 - coded-cost 8/16/32-block local motion and MV prediction;
 - Rice/canonical Huffman/range-style coefficient coding selected by measurements;
-- encoder buffer reuse, persistent workers, and I-frame pipeline optimization;
+- predictor-first/early-accept RD search and compact decoder coefficient scratch;
 - CRF-like quality/rate control and complete preset curves;
 - benchmark against both fixed real videos every build;
 - `libghv` decoder API;

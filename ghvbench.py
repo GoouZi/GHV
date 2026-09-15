@@ -6,7 +6,7 @@ from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
 
 ROOT = Path(__file__).resolve().parent
 RESULT_RE = re.compile(r'RESULT\s+frames=(\d+)\s+duration=([0-9.]+)\s+size_mib=([0-9.]+)\s+elapsed=([0-9.]+)\s+avg_fps=([0-9.]+)')
-PROFILE_VALUE_RE = re.compile(r'([a-z_]+)=([0-9.]+)')
+PROFILE_VALUE_RE = re.compile(r'([a-z_]+)=([0-9.eE+-]+)')
 
 
 def parse_profile_line(lines, marker: str):
