@@ -2,6 +2,20 @@
 
 ## Unreleased — GHVC8 Native Performance
 
+- Froze the verified byte-identical GHVC8 milestone at annotated tag
+  `ghv-0.8-stable-perf2`, backup branch, verified bundle, and build-tested ZIP.
+- Added a C++17 `libghv` decoder foundation with metadata, shared YUV420 frame
+  ownership, 64-bit indexed seek, structured errors, and native GHAC1 decode.
+- Added GHV Player 0.1 for Windows using Win32, D3D11 planar YUV rendering, a
+  WASAPI audio master clock, bounded decode queues, native seek/pause/replay,
+  normal player controls, and JSON acceptance telemetry.
+- Added a portable Windows x64 packaging script and package smoke test; normal
+  playback no longer requires Python, FFmpeg, ffplay, or OpenCV.
+- Native Player Test B completed 3/3 with zero drops/freezes/audio anomalies;
+  Test C completed 2/2 with eight late drops and no freeze/audio anomaly.
+- Rejected the 20-worker playback policy after it consumed 69–82% whole-machine
+  CPU; the measured eight-worker cap uses about 31–35% on full B/C playback.
+
 - Added exact branch-and-bound GHVC8 RD candidate rejection without changing
   mode decisions, output bytes, or reconstructed pixels.
 - Reused thread-local coefficient/motion scratch and added zero/DC-only exact

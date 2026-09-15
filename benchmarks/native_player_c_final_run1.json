@@ -1,0 +1,18 @@
+{
+  "schema": "ghv-native-player-stats-v1",
+  "clock_master": "WASAPI audio clock",
+  "audio_rate_fixed": true,
+  "duration_seconds": 181.348,
+  "wall_seconds": 181.505,
+  "displayed_frames": 4344,
+  "dropped_frames": 8,
+  "video_underruns": 0,
+  "freeze_events": 0,
+  "pitch_change_events": 0,
+  "slowdown_events": 0,
+  "speedup_events": 0,
+  "max_av_drift_seconds": 0.033687,
+  "cpu_seconds": 1281.58,
+  "average_cpu_percent_of_machine": 35.3043,
+  "peak_working_set_bytes": 303120384
+}

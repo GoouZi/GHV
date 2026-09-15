@@ -13,6 +13,11 @@
 - Second byte-identical iteration: A/B/C encode 155.22/48.80/10.46 fps and
   verified decode 670.85/211.44/46.00 fps; Test C is 1.92x realtime.
 - Test C now completes controlled 4K24 playback without freeze or audio-speed events.
+- Frozen stable commit/tag/branch plus verified Git bundle and source snapshot.
+- GHV Player 0.1 for Windows: native `libghv`, D3D11, WASAPI, Win32 UI,
+  bounded queues, indexed seek, portable package, and no Python/FFmpeg runtime.
+- Formal native-player playback: Test B 3/3 with zero drops; Test C 2/2 with
+  eight late drops each and zero freeze/audio-rate anomaly.
 
 ## Retained — GHV 0.7
 
@@ -34,7 +39,16 @@
 - Buffered native playback and playback diagnostics.
 - Experimental local block motion.
 
-## GHV 0.8 — Motion, Entropy, Native Runtime
+## Next — libghv API completion before GHVC9
+
+- versioned opaque C decoder handles and ABI/ownership contract;
+- incremental GHAC decode and reusable frame/audio pools;
+- direct YUV420 + PCM encoder push/finalize API;
+- generated-GHV-without-MP4 test/demo;
+- manual packaged-player UI stress for drag/drop, seek, resize, and fullscreen;
+- platform backends after Windows; do not claim untested macOS/mobile support.
+
+## Later GHVC9 — Adaptive compression
 
 Primary objective: push Test A below 250 MiB without losing comfortable realtime decode.
 
@@ -45,11 +59,11 @@ Implemented foundations and continuing research:
 - predictor-first/early-accept RD search and compact decoder coefficient scratch;
 - CRF-like quality/rate control and complete preset curves;
 - benchmark against both fixed real videos every build;
-- `libghv` decoder API;
-- no Python in normal playback;
-- direct audio/video synchronization in native runtime;
-- seek/index API and frame callbacks / texture upload path;
-- Godot extension prototype.
+- complete public `libghv` API and direct encoder;
+- adaptive 32x32/16x16 partitions and pre-RD candidate shortlist;
+- measured coefficient/DC entropy improvements;
+- formal Fast/Balanced/Quality encoder search presets;
+- Godot extension prototype after the ABI/ownership contract stabilizes.
 
 Target: preserve at least the current ~46 dB real-video PSNR class while producing another architecture-level rate reduction.
 

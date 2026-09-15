@@ -183,6 +183,31 @@ measured and rejected. See
 `benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
 `GODOT_INTEGRATION_NOTES.md`.
 
+## Frozen stable release and native Player (2026-09-15)
+
+The byte-identical performance milestone is permanently anchored at commit
+`8f8ec96e00468c9029c573e182520778be9d2f39` by annotated tag
+`ghv-0.8-stable-perf2`, branch `backup/ghvc8-stable-perf2`, a verified complete
+Git bundle, and a build-tested source ZIP. See `RESTORE_GHVC8_STABLE.md`.
+
+GHV Player 0.1 is a separate native Windows application:
+
+- `libghv` GHVC7/8 decode, 64-bit indexed seek, native GHAC1 PCM decode;
+- bounded worker-decoded YUV420 frame queue;
+- D3D11 planar YUV upload and shader conversion;
+- fixed-rate WASAPI audio/device master clock;
+- Win32 DPI-aware controls, drag/drop, timeline seek, volume/mute, aspect-fit
+  resize, fullscreen, EOF/replay, and structured errors;
+- no Python, FFmpeg, ffplay, or OpenCV dependency in the end-user player.
+
+Test B completed 3/3 formal runs with all 3121 frames displayed and no drops,
+underruns, freezes, or audio-speed events. Test C completed 2/2 formal runs
+with eight late video drops per run and no underrun, freeze, pitch, slowdown,
+or speedup event. See `benchmarks/GHV_PLAYER_0.1_WINDOWS_2026-09-15.md`.
+
+The new library is a decoder/player foundation, not yet a stable C ABI. Direct
+YUV/PCM encoding and the generated-without-MP4 demo remain Phase 2 work.
+
 ## Reproduce
 
 ```text
@@ -200,5 +225,5 @@ Highest-value next work:
 2. replace the remaining escape levels with measured adaptive Rice/canonical Huffman coding;
 3. compact/reuse decoder coefficient scratch and continue SIMD evaluation;
 4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;
-5. expose `libghv` decoder/player APIs and remove the long-term ffplay dependency;
+5. add the versioned opaque C API, incremental audio, and direct encoder API;
 6. capture peak memory, CPU utilization, and rendered dropped-frame/A/V drift metrics.

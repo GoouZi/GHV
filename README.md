@@ -96,6 +96,15 @@ GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about h
 
 ## Windows quick start
 
+For normal playback, extract `releases/GHV_Player_Windows_x64.zip` and run
+`GHV Player.exe`. It is the native end-user player and needs neither Python nor
+FFmpeg. Open with Ctrl+O, pass a `.ghv` path, or drag a file onto the window.
+See `apps/ghv_player/README.md` for controls.
+
+`ghvplay.py` is retained as the **Developer / Diagnostic Player** for telemetry,
+experiments, and codec troubleshooting. The source/conversion tools below still
+use Python and FFmpeg for input-media decoding.
+
 1. Install Python 3.10+ and FFmpeg.
 2. Run `setup_windows.bat`.
 3. If MSVC / MinGW-w64 / Clang is present, setup builds:
@@ -177,12 +186,16 @@ MP4 / MKV / MOV / OGV / ...
           v
         .ghv
 
-Preferred playback:
-.ghv -> native ghvdecode -> bounded YUV queue -> controlled renderer
-          GHAC1 decode -> fixed-rate audio ----^ shared monotonic clock
+End-user playback:
+.ghv -> libghv -> bounded YUV queue -> D3D11 YUV renderer
+          GHAC1 PCM -> WASAPI --------^ audio device master clock
+
+Developer/diagnostic playback remains available through `ghvplay.py`.
 ```
 
-FFmpeg is still used to decode source media during conversion and for the temporary fixed-rate audio output helper. FFmpeg does **not** encode or decode GHVC6/7/8 itself.
+FFmpeg is still used to decode source media during conversion and by some
+developer tools. GHV Player itself does not use FFmpeg. FFmpeg does **not**
+encode or decode GHVC6/7/8 itself.
 
 ## Current target
 

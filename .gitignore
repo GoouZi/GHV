@@ -10,5 +10,6 @@ native/bin/ghvdecode
 native/build/
 native/bin/Release/
 releases/*.zip
+releases/GHV_Player_Windows_x64/
 benchmarks/output/
 benchmarks/visuals/
