@@ -59,9 +59,9 @@ a measured 57 fps 4K decoder microbenchmark and stable 4K24 playback. The
 
 ## Interaction verification scope
 
-Automated native core tests passed prebuffer, presentation, middle-keyframe
-seek, WASAPI open/play, pause clock freeze, seek/re-anchor/resume, and clean
-shutdown on Tests B and C. Process smoke confirmed the GUI remained responsive
+Automated native core tests passed prebuffer, presentation, sequential
+10/25/50/75/90 percent keyframe seek, WASAPI open/play, pause clock freeze,
+seek/re-anchor/resume, and clean shutdown on Tests B and C. Process smoke confirmed the GUI remained responsive
 on both files. Open/file dialog, drag/drop, timeline dragging, resize,
 aspect-fit, fullscreen auto-hide/restore, volume/mute, EOF/replay, and shortcuts
 are implemented in the Win32 application.
@@ -71,4 +71,3 @@ native-app control, so mouse-driven resize/fullscreen/drag-drop stress was not
 robotically exercised. These interactions must not be described as manually or
 automatically acceptance-tested here; they remain a focused human UI check for
 the packaged build.
-

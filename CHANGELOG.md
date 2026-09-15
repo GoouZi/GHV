@@ -13,6 +13,8 @@
   playback no longer requires Python, FFmpeg, ffplay, or OpenCV.
 - Native Player Test B completed 3/3 with zero drops/freezes/audio anomalies;
   Test C completed 2/2 with eight late drops and no freeze/audio anomaly.
+- Added native PlayerCore/WASAPI acceptance coverage for sequential
+  10/25/50/75/90 percent indexed seeks on Tests B and C.
 - Rejected the 20-worker playback policy after it consumed 69–82% whole-machine
   CPU; the measured eight-worker cap uses about 31–35% on full B/C playback.
 

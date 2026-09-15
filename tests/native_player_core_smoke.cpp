@@ -22,11 +22,17 @@ int main(int argc, char** argv) {
     if (!core.frame_for_clock(2000, frame, dropped) || frame.frame_index != 0) {
         std::cerr << "first presentation frame failed\n"; return 4;
     }
-    const uint64_t middle = core.metadata().duration_us / 2;
-    if (!core.seek(middle, error) || !core.wait_for_prebuffer(10000, error) ||
-        !core.frame_for_clock(middle + 2000, frame, dropped) || frame.pts_us + frame.duration_us < middle) {
-        std::cerr << "seek/presentation failed: " << error << "\n"; return 5;
+    const uint64_t duration = core.metadata().duration_us;
+    for (const uint64_t percentage : {10ull, 25ull, 50ull, 75ull, 90ull}) {
+        const uint64_t target = duration * percentage / 100;
+        if (!core.seek(target, error) || !core.wait_for_prebuffer(10000, error) ||
+            !core.frame_for_clock(target + 2000, frame, dropped) ||
+            frame.pts_us + frame.duration_us < target) {
+            std::cerr << "seek/presentation failed at " << percentage << "%: " << error << "\n";
+            return 5;
+        }
     }
+    const uint64_t middle = duration / 2;
 
     ghvplayer::WasapiAudio audio;
     if (!audio.open(core.audio(), error) || !audio.play_from(0, error)) {
@@ -51,7 +57,7 @@ int main(int argc, char** argv) {
         std::cerr << "audio clock did not re-anchor after seek: " << sought << "\n"; return 9;
     }
     audio.close(); core.close(); CoUninitialize();
-    std::cout << "PASS native player core prebuffer/presentation/seek and WASAPI clock"
+    std::cout << "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock"
               << " running_us=" << running << " sought_us=" << sought << "\n";
     return 0;
 }
