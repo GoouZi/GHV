@@ -170,7 +170,7 @@ the original candidate/tie order and all A/B/C SHA-256 values. Persistent
 thread-local decode scratch plus exact zero/DC-only paths improve full verified
 decode without changing pixels.
 
-- Test A: **157.938 encode / 738.303 decode fps**.
+- Test A: **155.223 encode / 670.845 decode fps**.
 - Test B: **48.795 encode / 211.439 decode fps**; playback 3/3 PASS with
   2/10/0 scheduling drops and zero freeze/audio-speed events.
 - Test C: **10.464 encode / 45.997 decode fps (1.917x realtime)**; playback

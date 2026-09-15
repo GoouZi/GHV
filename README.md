@@ -86,8 +86,8 @@ Test C now exceeds realtime decode with CRC verification and completed a full
 `benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
 
 The next byte-identical GHVC8 iteration adds exact RD early rejection and
-reusable decoder coefficient scratch. A/B/C now encode at **157.94 / 48.80 /
-10.46 fps** and fully verified decode at **738.30 / 211.44 / 46.00 fps**.
+reusable decoder coefficient scratch. A/B/C now encode at **155.22 / 48.80 /
+10.46 fps** and fully verified decode at **670.85 / 211.44 / 46.00 fps**.
 Output size, SHA-256, PSNR, SSIM, and visual quality are unchanged. See
 `benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
 `GODOT_INTEGRATION_NOTES.md`.

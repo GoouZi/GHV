@@ -9,8 +9,8 @@
 - Added RD candidate/completion/rejection counters and zero/DC decode counters.
 - Tested and rejected slower cheap-SAD ordering and narrow SSE2 kernels instead
   of retaining benchmark regressions.
-- Improved A/B/C encode to 157.938/48.795/10.464 fps and verified decode to
-  738.303/211.439/45.997 fps; all output SHA-256 values remain identical.
+- Improved A/B/C encode to 155.223/48.795/10.464 fps and verified decode to
+  670.845/211.439/45.997 fps; all output SHA-256 values remain identical.
 - Added late-drop-specific player telemetry and Godot/libghv integration notes.
 - Added `--profile` encode/decode stage timing and structured benchmark capture with CPU/core/GPU inventory.
 - Removed per-macroblock motion-search heap allocation and cached per-frame quantization tables.

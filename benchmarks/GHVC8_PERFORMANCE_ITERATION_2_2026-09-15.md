@@ -8,7 +8,7 @@ therefore PSNR, SSIM, and the approved visual comparisons are unchanged.
 
 | Test | Output | Encode | Verified decode | Encode RAM | Decode RAM |
 |---|---:|---:|---:|---:|---:|
-| A 960x544/30 | 303,023,656 B | 140.443 -> **157.938 fps** | 448.172 -> **738.303 fps** | 151.0 -> 152.0 MiB | 10.1 -> 12.3 MiB |
+| A 960x544/30 | 303,023,656 B | 140.443 -> **155.223 fps** | 448.172 -> **670.845 fps** | 151.0 -> 150.7 MiB | 10.1 -> 12.1 MiB |
 | B 1920x1080/30 | 580,797,129 B | 45.464 -> **48.795 fps** | 141.190 -> **211.439 fps** | 326.2 -> 329.7 MiB | 21.4 -> 30.9 MiB |
 | C 3840x2160/24 | 4,279,779,323 B | 9.777 -> **10.464 fps** | 30.213 -> **45.997 fps** | 834.3 -> 799.7 MiB | 68.6 -> 105.9 MiB |
 
@@ -32,7 +32,7 @@ the current winner, preserving the original decision and tie order.
 
 The largest encoder hotspot remains RD evaluation. Test C accumulated 2,513 s
 of parallel RD CPU time, versus 137 s motion-search CPU time. End-to-end encode
-improvement is 12.5% on A, 7.3% on B, and 7.0% on C.
+improvement is 10.5% on A, 7.3% on B, and 7.0% on C.
 
 ## Decoder profile
 
