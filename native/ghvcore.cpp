@@ -12,6 +12,7 @@
 #include <vector>
 #include "ghvcodec7.h"
 #include "ghvcodec8.h"
+#include "ghvcrc.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -64,9 +65,8 @@ static void quantize(std::vector<uint8_t>& f,int w,int h,int q){
     for(long long i=(long long)ysz;i<(long long)f.size();i++)f[size_t(i)]=quant1(f[size_t(i)],cs);
 }
 
-static uint32_t crc_table[256];
-static void init_crc(){ for(uint32_t i=0;i<256;i++){uint32_t c=i;for(int j=0;j<8;j++)c=(c&1)?(0xEDB88320u^(c>>1)):(c>>1);crc_table[i]=c;} }
-static uint32_t crc32(const uint8_t* p,size_t n){uint32_t c=0xFFFFFFFFu;for(size_t i=0;i<n;i++)c=crc_table[(c^p[i])&255]^(c>>8);return c^0xFFFFFFFFu;}
+static void init_crc(){}
+static uint32_t crc32(const uint8_t* p,size_t n){return ghvcrc::compute(p,n);}
 
 static double scene_score(const std::vector<uint8_t>& a,const std::vector<uint8_t>& b,int w,int h){
     uint64_t sum=0,count=0; for(int y=0;y<h;y+=16){size_t row=size_t(y)*w;for(int x=0;x<w;x+=16){sum+=uint64_t(std::abs(int(a[row+x])-int(b[row+x])));count++;}}
@@ -297,7 +297,7 @@ int main(int argc,char** argv){
     if(ghv_mode && expected>0 && expected<100000000ull) index.reserve(size_t(expected));
     uint64_t count=0,repeats=0,pframes=0,iframes=0,mv_nonzero=0,mv_total=0,zero_blocks=0;
     auto start=std::chrono::steady_clock::now();ghvc8::Profile codec_profile;
-    uint64_t input_ns=0,decision_ns=0,codec_ns=0,io_ns=0;
+    uint64_t input_ns=0,decision_ns=0,codec_ns=0,intra_ns=0,crc_ns=0,io_ns=0;
     const int dz=residual_deadzone(quality),rstep=residual_step(quality);
     const double rpt=repeat_threshold(quality);
 
@@ -338,12 +338,13 @@ int main(int argc,char** argv){
             }
         }else{
             type=0;iframes++;
-            if(codec==8||codec==7)packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);
+            if(codec==8||codec==7){auto intra_t0=std::chrono::steady_clock::now();packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);intra_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-intra_t0).count());}
             else {intra_residual(frame,res,w,h);packed=bitpack6(res,false);recon=frame;}
         }
         if(type!=2&&codec==6)packed=zrun_wrap(packed);
         capture_source_samples(frame,source_samples,w,h);
-        uint32_t chk=crc32(recon.data(),recon.size());
+        auto crc_t0=std::chrono::steady_clock::now();uint32_t chk=crc32(recon.data(),recon.size());
+        crc_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-crc_t0).count());
         decision_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-decision_t0).count());
 
         auto io_t0=std::chrono::steady_clock::now();
@@ -418,6 +419,7 @@ int main(int argc,char** argv){
         auto ms=[](uint64_t ns){return double(ns)/1000000.0;};
         std::cerr<<"GHV_ENCODE_PROFILE input_ms="<<ms(input_ns)
                  <<" decision_total_ms="<<ms(decision_ns)<<" codec_p_ms="<<ms(codec_ns)
+                 <<" codec_i_ms="<<ms(intra_ns)<<" crc_ms="<<ms(crc_ns)
                  <<" motion_cpu_ms="<<ms(codec_profile.motion_search_ns.load())
                  <<" rd_cpu_ms="<<ms(codec_profile.rd_ns.load())
                  <<" mv_entropy_ms="<<ms(codec_profile.mv_entropy_ns)

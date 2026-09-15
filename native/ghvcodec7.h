@@ -106,6 +106,13 @@ inline int qstep(int quality, int plane, int u, int v) {
     if (plane>0) step=(step*5+2)/4;
     return std::max(1,step);
 }
+struct QuantTables {
+    int step[3][64];
+    explicit QuantTables(int quality){
+        for(int plane=0;plane<3;plane++)for(int v=0;v<8;v++)for(int u=0;u<8;u++)
+            step[plane][v*8+u]=qstep(quality,plane,u,v);
+    }
+};
 inline uint32_t block_count(int w,int h) {
     int cw=w/2,ch=h/2;
     return uint32_t(((w+7)/8)*((h+7)/8) + 2*((cw+7)/8)*((ch+7)/8));
@@ -136,7 +143,7 @@ struct Candidate {
 
 inline Candidate make_candidate(const std::vector<uint8_t>& frame,const std::vector<uint8_t>* prev,
                                 const std::vector<uint8_t>& recon,size_t base,int pw,int ph,
-                                int x0,int y0,int plane,int quality,uint8_t mode) {
+                                int x0,int y0,int plane,int quality,uint8_t mode,const int* steps=nullptr) {
     Candidate c; c.mode=mode; int16_t residual[64]; int coeff[64];
     int dc=intra_dc(recon,base,pw,ph,x0,y0);
     for(int y=0;y<8;y++) for(int x=0;x<8;x++) {
@@ -147,7 +154,7 @@ inline Candidate make_candidate(const std::vector<uint8_t>& frame,const std::vec
     }
     transform(residual,coeff);
     for(int v=0;v<8;v++) for(int u=0;u<8;u++)
-        c.q[v*8+u]=div_round(coeff[v*8+u],qstep(quality,plane,u,v));
+        c.q[v*8+u]=div_round(coeff[v*8+u],steps?steps[v*8+u]:qstep(quality,plane,u,v));
     for(int i=63;i>=0;i--) if(c.q[ZIGZAG[i]]!=0){c.last=i;break;}
     if(c.last<0){c.bytes=0;return c;}
     c.bytes=1; int pos=0;
@@ -158,20 +165,20 @@ inline Candidate make_candidate(const std::vector<uint8_t>& frame,const std::vec
 
 inline void reconstruct_block(const Candidate& c,const std::vector<uint8_t>* prev,
                               std::vector<uint8_t>& recon,size_t base,int pw,int ph,
-                              int x0,int y0,int plane,int quality) {
+                              int x0,int y0,int plane,int quality,const int* steps=nullptr) {
     int coeff[64];int16_t residual[64];
-    for(int v=0;v<8;v++)for(int u=0;u<8;u++)coeff[v*8+u]=c.q[v*8+u]*qstep(quality,plane,u,v);
-    inverse(coeff,residual);int dc=intra_dc(recon,base,pw,ph,x0,y0);
+    if(c.last>=0){for(int i=0;i<64;i++)coeff[i]=c.q[i]*(steps?steps[i]:qstep(quality,plane,i&7,i>>3));inverse(coeff,residual);}
+    int dc=intra_dc(recon,base,pw,ph,x0,y0);
     for(int y=0;y<8&&y0+y<ph;y++)for(int x=0;x<8&&x0+x<pw;x++){
         int pred=prediction(c.mode,prev,recon,base,pw,ph,x0,y0,x,y,dc);
-        recon[base+size_t(y0+y)*pw+x0+x]=uint8_t(clamp8(pred+residual[y*8+x]));
+        recon[base+size_t(y0+y)*pw+x0+x]=uint8_t(c.last<0?pred:clamp8(pred+residual[y*8+x]));
     }
 }
 
 inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::vector<uint8_t>* prev,
                                    int w,int h,int quality,bool intra,std::vector<uint8_t>& recon,
                                    uint64_t* zero_blocks=nullptr) {
-    uint32_t blocks=block_count(w,h); size_t desc_bytes=(size_t(blocks)*3+7)/8;
+    QuantTables qt(quality);uint32_t blocks=block_count(w,h); size_t desc_bytes=(size_t(blocks)*3+7)/8;
     std::vector<uint8_t> desc(desc_bytes,0), body; body.reserve(frame.size()/8);
     recon.assign(frame.size(),0); uint32_t bi=0;size_t base=0;
     auto plane_fn=[&](int pw,int ph,int plane){
@@ -188,17 +195,17 @@ inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if(total>128)
 #endif
-            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;cv[size_t(i)]=make_candidate(frame,prev,recon,base,pw,ph,x0,y0,plane,quality,0);}
+            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;cv[size_t(i)]=make_candidate(frame,prev,recon,base,pw,ph,x0,y0,plane,quality,0,qt.step[plane]);}
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if(total>128)
 #endif
-            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;reconstruct_block(cv[size_t(i)],prev,recon,base,pw,ph,x0,y0,plane,quality);}
+            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;reconstruct_block(cv[size_t(i)],prev,recon,base,pw,ph,x0,y0,plane,quality,qt.step[plane]);}
             for(const auto& c:cv)emit(c);
         }else{
             for(int y0=0;y0<ph;y0+=8)for(int x0=0;x0<pw;x0+=8){
-                Candidate best=make_candidate(frame,nullptr,recon,base,pw,ph,x0,y0,plane,quality,1);
-                for(uint8_t m=2;m<=3;m++){Candidate c=make_candidate(frame,nullptr,recon,base,pw,ph,x0,y0,plane,quality,m);if(c.bytes<best.bytes)best=c;}
-                reconstruct_block(best,nullptr,recon,base,pw,ph,x0,y0,plane,quality);emit(best);
+                Candidate best=make_candidate(frame,nullptr,recon,base,pw,ph,x0,y0,plane,quality,1,qt.step[plane]);
+                for(uint8_t m=2;m<=3;m++){Candidate c=make_candidate(frame,nullptr,recon,base,pw,ph,x0,y0,plane,quality,m,qt.step[plane]);if(c.bytes<best.bytes)best=c;}
+                reconstruct_block(best,nullptr,recon,base,pw,ph,x0,y0,plane,quality,qt.step[plane]);emit(best);
             }
         }
         base+=size_t(pw)*ph;
@@ -216,7 +223,7 @@ inline void decode(const std::vector<uint8_t>& in,const std::vector<uint8_t>* pr
         throw std::runtime_error("bad GHVC7 payload");
     int quality=in[5];uint32_t raw=le32(in.data()+8),blocks=le32(in.data()+12),want=block_count(w,h);
     if(raw!=expected||blocks!=want||quality<1||quality>100)throw std::runtime_error("invalid GHVC7 header");
-    size_t desc_bytes=(size_t(blocks)*3+7)/8,p=16+desc_bytes;if(p>in.size())throw std::runtime_error("truncated GHVC7 descriptors");
+    QuantTables qt(quality);size_t desc_bytes=(size_t(blocks)*3+7)/8,p=16+desc_bytes;if(p>in.size())throw std::runtime_error("truncated GHVC7 descriptors");
     recon.assign(expected,0);uint32_t bi=0;size_t base=0;
     auto plane_fn=[&](int pw,int ph,int plane){
         int nx=(pw+7)/8,ny=(ph+7)/8,total=nx*ny;
@@ -235,9 +242,20 @@ inline void decode(const std::vector<uint8_t>& in,const std::vector<uint8_t>* pr
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if(total>128)
 #endif
-            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;reconstruct_block(cv[size_t(i)],prev,recon,base,pw,ph,x0,y0,plane,quality);}
+            for(int i=0;i<total;i++){int x0=(i%nx)*8,y0=(i/nx)*8;reconstruct_block(cv[size_t(i)],prev,recon,base,pw,ph,x0,y0,plane,quality,qt.step[plane]);}
         }else{
-            for(int y0=0;y0<ph;y0+=8)for(int x0=0;x0<pw;x0+=8){Candidate c=read_candidate();reconstruct_block(c,nullptr,recon,base,pw,ph,x0,y0,plane,quality);}
+            std::vector<Candidate> cv(static_cast<size_t>(total));
+            for(int i=0;i<total;i++)cv[size_t(i)]=read_candidate();
+            // Intra predictors depend only on the block directly above and to
+            // the left.  Blocks on one diagonal are therefore independent.
+            for(int diagonal=0;diagonal<nx+ny-1;diagonal++){
+                int first_by=std::max(0,diagonal-(nx-1)),last_by=std::min(ny-1,diagonal);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) if(last_by-first_by>3)
+#endif
+                for(int by=first_by;by<=last_by;by++){int bx=diagonal-by,i=by*nx+bx;
+                    reconstruct_block(cv[size_t(i)],nullptr,recon,base,pw,ph,bx*8,by*8,plane,quality,qt.step[plane]);}
+            }
         }
         base+=size_t(pw)*ph;
     };
