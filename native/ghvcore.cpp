@@ -426,7 +426,11 @@ int main(int argc,char** argv){
                  <<" transform_quant_ms="<<ms(codec_profile.transform_quant_ns)
                  <<" coeff_entropy_ms="<<ms(codec_profile.coeff_entropy_ns)
                  <<" reconstruction_ms="<<ms(codec_profile.reconstruction_ns)
-                 <<" io_ms="<<ms(io_ns)<<" p_frames="<<codec_profile.p_frames<<"\n";
+                 <<" io_ms="<<ms(io_ns)<<" p_frames="<<codec_profile.p_frames
+                 <<" rd_candidates="<<codec_profile.rd_candidates.load()
+                 <<" rd_completed="<<codec_profile.rd_completed.load()
+                 <<" rd_early_rejects="<<codec_profile.rd_early_rejects.load()
+                 <<" rd_blocks="<<codec_profile.rd_blocks.load()<<"\n";
     }
     return 0;
 }
