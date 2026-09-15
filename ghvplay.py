@@ -283,7 +283,7 @@ def play_native(args,h,fps,target_frame,wav_path):
     audio=None
     if wav_path and not args.no_audio and ffplay:
         audio=subprocess.Popen([ffplay,'-nodisp','-autoexit','-loglevel','error','-ss',f'{args.start:.6f}',wav_path],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    started=time.perf_counter();last_display=started;freeze_active=False;shown=dropped=underruns=freezes=0;max_drift=0.0;sum_drift=0.0;drift_n=0;samples=[];completed=False
+    started=time.perf_counter();last_display=started;freeze_active=False;shown=dropped=underruns=freezes=0;max_drift=0.0;sum_drift=0.0;drift_n=0;max_drop_lateness=0.0;sum_drop_lateness=0.0;drop_lateness_n=0;samples=[];completed=False
     print('[GHV] Playback engine: controlled native decoder + bounded audio-master renderer')
     try:
         frame_no=target_frame
@@ -304,6 +304,8 @@ def play_native(args,h,fps,target_frame,wav_path):
             yuv=item[1];video_pts=(frame_no-target_frame)/fps;audio_clock=time.perf_counter()-started;late=audio_clock-video_pts
             if late>1.25/fps:
                 if time.perf_counter()-last_display>.5 and not freeze_active:freezes+=1;freeze_active=True
+                max_drop_lateness=max(max_drop_lateness,late);sum_drop_lateness+=late;drop_lateness_n+=1
+                if args.stats and len(samples)<12000:samples.append({'event':'late_video_drop','wall_clock':round(audio_clock,6),'audio_clock':round(audio_clock,6),'video_clock':round(video_pts,6),'av_drift':round(late,6),'video_queue_depth':frames.qsize(),'displayed_frames':shown,'dropped_frames':dropped+1})
                 dropped+=1;frame_no+=1;continue
             if late<0:time.sleep(-late)
             audio_clock=time.perf_counter()-started;drift=audio_clock-video_pts;max_drift=max(max_drift,abs(drift));sum_drift+=abs(drift);drift_n+=1
@@ -319,7 +321,7 @@ def play_native(args,h,fps,target_frame,wav_path):
         if completed and drc!=0:
             derr.seek(0);raise RuntimeError(f'Native GHVC decoder failed (exit {drc}):\n'+derr.read().decode('utf-8','replace'))
         if args.stats:
-            report={'schema':'ghvplay-stats-v2','clock_master':'fixed-rate-audio/monotonic','audio_rate_fixed':True,'resolution':[h.width,h.height],'fps':fps,'duration_seconds':h.duration_us/1e6,'wall_duration_seconds':round(time.perf_counter()-started,6),'average_abs_av_drift_seconds':sum_drift/drift_n if drift_n else None,'max_abs_av_drift_seconds':max_drift,'displayed_frames':shown,'dropped_frames':dropped,'video_underruns':underruns,'audio_underruns':None,'freeze_events':freezes,'slowdown_events':0,'speedup_events':0,'pitch_change_events':0,'pipeline_stall':bool(freezes),'decoder_fatal':False,'playback_speed_average':1.0,'peak_video_queue_depth':qsize,'samples':samples}
+            report={'schema':'ghvplay-stats-v2','clock_master':'fixed-rate-audio/monotonic','audio_rate_fixed':True,'resolution':[h.width,h.height],'fps':fps,'duration_seconds':h.duration_us/1e6,'wall_duration_seconds':round(time.perf_counter()-started,6),'average_abs_av_drift_seconds':sum_drift/drift_n if drift_n else None,'max_abs_av_drift_seconds':max_drift,'average_late_drop_seconds':sum_drop_lateness/drop_lateness_n if drop_lateness_n else None,'max_late_drop_seconds':max_drop_lateness if drop_lateness_n else None,'displayed_frames':shown,'dropped_frames':dropped,'video_underruns':underruns,'audio_underruns':None,'freeze_events':freezes,'slowdown_events':0,'speedup_events':0,'pitch_change_events':0,'pipeline_stall':bool(freezes),'decoder_fatal':False,'playback_speed_average':1.0,'peak_video_queue_depth':qsize,'samples':samples}
             path=Path(args.stats).resolve();path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(report,indent=2),encoding='utf-8');print(f'[GHV] Playback telemetry: {path}');print(f'[GHV] shown={shown} dropped={dropped} max_drift={max_drift:.3f}s freezes={freezes}')
         return True
     finally:
