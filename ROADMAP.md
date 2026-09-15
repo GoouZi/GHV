@@ -10,6 +10,8 @@
 - Test B 553.891 MiB at 46.671 dB / 0.990330; three controlled playback passes.
 - Profile-guided native milestone: A/B/C encode 140.44/45.46/9.78 fps and
   verified decode 448.17/141.19/30.21 fps with byte-identical output.
+- Second byte-identical iteration: A/B/C encode 157.94/48.80/10.46 fps and
+  verified decode 738.30/211.44/46.00 fps; Test C is 1.92x realtime.
 - Test C now completes controlled 4K24 playback without freeze or audio-speed events.
 
 ## Retained — GHV 0.7

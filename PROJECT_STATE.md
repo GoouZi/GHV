@@ -163,6 +163,26 @@ materialization/parse and reconstruction; verified CRC is still 13.7% of Test
 C wall time even after slicing-by-8 acceleration. See
 `benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
 
+## GHVC8 performance iteration 2 (2026-09-15)
+
+No bitstream change was made. Strict accumulated-cost RD rejection preserves
+the original candidate/tie order and all A/B/C SHA-256 values. Persistent
+thread-local decode scratch plus exact zero/DC-only paths improve full verified
+decode without changing pixels.
+
+- Test A: **157.938 encode / 738.303 decode fps**.
+- Test B: **48.795 encode / 211.439 decode fps**; playback 3/3 PASS with
+  2/10/0 scheduling drops and zero freeze/audio-speed events.
+- Test C: **10.464 encode / 45.997 decode fps (1.917x realtime)**; playback
+  PASS with 38 late drops, zero freeze/pitch/slowdown/speedup.
+- A/B/C sizes, PSNR, SSIM, visual result, and SHA-256 are exactly unchanged.
+
+RD evaluation remains the largest encode hotspot; coefficient decode is the
+largest decode hotspot. Narrow SSE2 and cheap-SAD ordering experiments were
+measured and rejected. See
+`benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
+`GODOT_INTEGRATION_NOTES.md`.
+
 ## Reproduce
 
 ```text
@@ -176,7 +196,7 @@ python ghvplay.py output.ghv --engine native
 GHVC8 achieved the `<300 MiB` Test A stage, but remains far from OGV/Theora.
 Highest-value next work:
 
-1. reduce RD candidate work with predictor-first early accept and hierarchical search;
+1. reduce remaining full RD work with a bitstream-preserving coarse lower bound or batched transforms;
 2. replace the remaining escape levels with measured adaptive Rice/canonical Huffman coding;
 3. compact/reuse decoder coefficient scratch and continue SIMD evaluation;
 4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;

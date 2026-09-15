@@ -85,6 +85,13 @@ Test C now exceeds realtime decode with CRC verification and completed a full
 4K24 controlled playback run with no freeze or audio-speed event. See
 `benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
 
+The next byte-identical GHVC8 iteration adds exact RD early rejection and
+reusable decoder coefficient scratch. A/B/C now encode at **157.94 / 48.80 /
+10.46 fps** and fully verified decode at **738.30 / 211.44 / 46.00 fps**.
+Output size, SHA-256, PSNR, SSIM, and visual quality are unchanged. See
+`benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
+`GODOT_INTEGRATION_NOTES.md`.
+
 GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about half as fast as GHVC6, while optimized decode is equal or faster. Both Test B outputs completed full 104.118 s native A/V playback without a freeze on this machine. See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` for method and limitations.
 
 ## Windows quick start

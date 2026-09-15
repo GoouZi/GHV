@@ -2,6 +2,16 @@
 
 ## Unreleased — GHVC8 Native Performance
 
+- Added exact branch-and-bound GHVC8 RD candidate rejection without changing
+  mode decisions, output bytes, or reconstructed pixels.
+- Reused thread-local coefficient/motion scratch and added zero/DC-only exact
+  inverse-transform fast paths.
+- Added RD candidate/completion/rejection counters and zero/DC decode counters.
+- Tested and rejected slower cheap-SAD ordering and narrow SSE2 kernels instead
+  of retaining benchmark regressions.
+- Improved A/B/C encode to 157.938/48.795/10.464 fps and verified decode to
+  738.303/211.439/45.997 fps; all output SHA-256 values remain identical.
+- Added late-drop-specific player telemetry and Godot/libghv integration notes.
 - Added `--profile` encode/decode stage timing and structured benchmark capture with CPU/core/GPU inventory.
 - Removed per-macroblock motion-search heap allocation and cached per-frame quantization tables.
 - Removed the duplicate selected-block forward transform while preserving byte-identical GHVC8 output.
