@@ -3,7 +3,7 @@
 **GHV — Goou_Zi High-efficiency Video** (`.ghv`)  
 **GHA — Goou_Zi High-efficiency Audio** (`.gha`)
 
-GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. GHV 0.7 uses our own transform-domain **GHVC7** video codec; embedded/standalone audio uses **GHAC1**. GHVC6 remains available with `--codec 6` and older files remain decodable.
+GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. GHV 0.8 uses our own transform/motion **GHVC8** video codec; embedded/standalone audio uses **GHAC1**. GHVC6/7 remain available and older files remain decodable.
 
 > Development format: bitstream compatibility can still change before 1.0.
 
@@ -33,7 +33,7 @@ Pixel-domain residual packing had reached diminishing returns. GHV 0.7 introduce
 - Source-sampled Repeat detection, scene-change I frames, and bounded keyframe intervals.
 - `ghvbench.py` can emit human and JSON reports with encode/decode FPS, CRC, PSNR, and SSIM.
 - Player supports GHVC7 and monitors decoder/mux/presenter health. Fatal video failure now stops the complete A/V chain.
-- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support codec 7.
+- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support the versioned native codecs through GHVC8.
 
 The first GHVC7 profile intentionally does not write motion vectors yet. Motion must be selected by actual coded cost in a future profile; the experimental GHVC6 `GPM6` code remains in-tree.
 
@@ -87,14 +87,14 @@ GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about h
 ## Useful commands
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --codec 7 --preset balanced
+python ghvenc.py input.mp4 output.ghv --codec 8 --preset balanced
 python ghvplay.py output.ghv              # Auto buffer
 python ghvverify.py output.ghv
 python ghvdoctor.py output.ghv
 python ghvinfo.py output.ghv
 python ghvrepair.py output.ghv
 python ghvbench.py input.mp4 output.ghv --preset balanced
-python ghvbench.py input.mp4 output.ghv --codec 7 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
 ```
 
 For a large 1080p file, Auto is now the default. You can still force a larger cushion:
@@ -131,7 +131,7 @@ Interpretation:
 - Verify **PASS**, decoder below ~1.15x realtime: machine/decoder throughput is the likely cause.
 - Verify **PASS**, decoder comfortably above realtime but playback still freezes: presentation/mux/player path needs investigation.
 
-The native player path uses a decoded-frame queue plus FFmpeg input queues and `ffplay -sync video`. GHV 0.7 additionally monitors decoder/mux/presenter exit state and stops the complete chain on fatal video failure.
+The normal player path uses the native decoder, a bounded decoded-frame queue, fixed-rate audio output, and an explicitly scheduled renderer. Audio/monotonic time is invariant: early video waits and late video may drop. A fatal decoder error stops both A/V paths. Use `--stats playback.json` for drift, queue, drop, underrun, freeze, and speed telemetry.
 
 ## Architecture
 
@@ -143,7 +143,7 @@ MP4 / MKV / MOV / OGV / ...
        YUV420p
           |
           v
-        GHVC7
+        GHVC8
    I / P / Repeat prediction
    8x8 integer transform
    frequency-aware quantization
@@ -157,15 +157,15 @@ MP4 / MKV / MOV / OGV / ...
         .ghv
 
 Preferred playback:
-.ghv -> native ghvdecode -> auto-buffered raw YUV420 pipe -> FFmpeg NUT copy -> ffplay
-                                              GHAC1 audio -----------^
+.ghv -> native ghvdecode -> bounded YUV queue -> controlled renderer
+          GHAC1 decode -> fixed-rate audio ----^ shared monotonic clock
 ```
 
-FFmpeg is still used as an input decoder and presentation/mux helper. FFmpeg does **not** encode or decode GHVC6/GHVC7 itself.
+FFmpeg is still used to decode source media during conversion and for the temporary fixed-rate audio output helper. FFmpeg does **not** encode or decode GHVC6/7/8 itself.
 
 ## Current target
 
-The first hard target remains **OGV/Theora**, not AV1. GHVC7 has reached the first `<500 MiB` Test A stage but is still far from the 45.2 MB historical OGV result.
+The first hard target remains **OGV/Theora**, not AV1. GHVC8 has reached the `<300 MiB` Test A stage at nearly unchanged objective quality but is still far from the 45.2 MB historical OGV result.
 
 Next major codec work:
 

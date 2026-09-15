@@ -1,0 +1,31 @@
+{
+  "input": "C:\\Users\\Goou_Zi\\Desktop\\GHV\\测试视频\\Test C.mp4",
+  "output": "C:\\Users\\Goou_Zi\\Desktop\\GHV\\GHV_source_repo\\benchmarks\\output\\test_c_ghvc8_balanced.ghv",
+  "preset": "balanced",
+  "codec": 8,
+  "actual_codec": 8,
+  "source": {
+    "width": 3840,
+    "height": 2160,
+    "fps": "4352000/181333",
+    "duration_seconds": 181.347846,
+    "video_bitrate_bps": 16401904,
+    "container_bitrate_bps": 16534301
+  },
+  "input_bytes": 374807495,
+  "output_bytes": 4279779323,
+  "size_ratio_output_over_input": 11.41860656495143,
+  "size_change_percent": 1041.860656495143,
+  "wall_seconds": 706.5340351000195,
+  "verified": true,
+  "encode_peak_memory_bytes": 806305792,
+  "output_bitrate_bps": 188798684.56115374,
+  "frames": 4352,
+  "duration_seconds": 181.348,
+  "encoder_elapsed_seconds": 706.239,
+  "avg_fps": 6.162,
+  "decode_fps": 18.7279,
+  "decode_peak_memory_bytes": 70828032,
+  "psnr_db": 47.138372,
+  "ssim": 0.987057
+}

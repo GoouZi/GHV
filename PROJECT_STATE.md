@@ -1,6 +1,6 @@
 # GHV / GHA Project State
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 This is the handoff file for a future ChatGPT/Codex session or human contributor.
 
@@ -8,8 +8,8 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
-- Current development release: **GHV 0.7 / GHA 0.2**
-- Current native video codec: **GHVC7** (GHVC4/5/6 remain decodable; GHVC6 remains encodable with `--codec 6`)
+- Current development release: **GHV 0.8 / GHA 0.2**
+- Current native video codec: **GHVC8** (GHVC4/5/6/7 remain decodable; GHVC6/7 remain encodable)
 - Current audio codec: **GHAC1**
 - License: MIT
 - Legacy project names GVID / GAUD are retired.
@@ -25,6 +25,7 @@ Test A reference MV, 960x544/30:
 - GHV 0.5: **819 MB**
 - GHV 0.6: **675.025 MiB** in the 2026-09-14 fixed-video rerun
 - GHV 0.7 / GHVC7: **443.249 MiB**
+- GHV 0.8 / GHVC8: **288.986 MiB**
 
 User feedback on 0.5:
 
@@ -37,7 +38,26 @@ This strongly points to HD decoder/presentation throughput in addition to compre
 
 Test B is a separate 1920x1080/30 performance and playback test. Do not mix
 its values with Test A. The 2026-09-14 outputs were 1350.329 MiB (GHVC6) and
-906.208 MiB (GHVC7).
+906.208 MiB (GHVC7), and 553.891 MiB (GHVC8).
+
+Test C is the fixed 3840x2160/24, 181.348 s VP9 stress source. It must not be
+substituted for Test A or B or used for every parameter experiment.
+
+## GHV 0.8 architecture
+
+GHVC8 adds 16x16 even-pixel local motion, component-median spatial MV
+prediction with delta coding, reconstructed rate-distortion decisions over YUV,
+one-bit zero-residual SKIP descriptors, and compact small run/level tokens.
+Independent motion searches and transform blocks are parallel; decoder output
+is scalar-bitstream-identical at every supported thread count. I frames retain
+the fully specified GTC7 syntax.
+
+Playback no longer interleaves multi-megabyte raw-video packets and PCM in a
+single NUT pipe. That design was measured starving ffplay audio whenever its
+video demux queue applied backpressure, causing pitch drop and timeline
+slowdown/catch-up. The controlled path runs audio at its declared sample rate
+and schedules bounded-queue video against monotonic time. It waits for early
+frames and explicitly drops only late video frames.
 
 ## GHV 0.7 architecture
 
@@ -114,21 +134,34 @@ Do not present these values as universal hardware performance.
 
 See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` and the adjacent JSON report.
 
+## Fixed GHVC8 benchmark (2026-09-15)
+
+- Test A: 288.986 MiB, 76.338 encode fps, 283.756 decode fps,
+  45.420949 dB / 0.984480.
+- Test B: 553.891 MiB, 25.826 encode fps, 81.341 decode fps,
+  46.671277 dB / 0.990330. Three controlled playback runs displayed all
+  3121 frames with zero drops/freezes/speed events.
+- Test C: 4081.516 MiB, 6.162 encode fps, 18.728 decode fps,
+  47.138372 dB / 0.987057. Controlled playback failed: 1337 drops and 18
+  freeze windows, while fixed-rate audio had no slowdown/pitch/speed-up event.
+
+See `benchmarks/GHVC8_BENCHMARK_2026-09-15.md` and the A/B/C JSON reports.
+
 ## Reproduce
 
 ```text
-python ghvbench.py input.mp4 output.ghv --codec 7 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
 python ghvdoctor.py output.ghv --frames 999999 --verify
 python ghvplay.py output.ghv --engine native
 ```
 
 ## Next major milestone
 
-GHVC7 achieved the first architecture-level reduction and the `<500 MiB` Test A
-stage, but remains far from OGV/Theora. Highest-value next work:
+GHVC8 achieved the `<300 MiB` Test A stage, but remains far from OGV/Theora.
+Highest-value next work:
 
-1. coded-cost local motion and motion-vector prediction in a versioned GHVC7 profile;
-2. replace varint levels with measured Rice/canonical Huffman/range-style coding;
+1. hierarchical/coarse-to-fine motion search and optional 32x32/8x8 partitions;
+2. replace the remaining escape levels with measured adaptive Rice/canonical Huffman coding;
 3. reduce encoder allocations and parallelize/pipe I-frame work;
 4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;
 5. expose `libghv` decoder/player APIs and remove the long-term ffplay dependency;

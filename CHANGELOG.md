@@ -1,5 +1,22 @@
 # Changelog
 
+## GHV 0.8 / GHA 0.2 — RD Motion and Stable Audio Clock
+
+- Added native GHVC8/GTP8 with 16x16 local motion compensation.
+- Added left/top/top-right component-median MV prediction and signed delta coding.
+- Added quality-first rate-distortion mode selection over four luma and two chroma transform blocks.
+- Reduced P-frame descriptors to a one-bit SKIP map; zero residual blocks write no coefficients.
+- Added single-byte compact run/level tokens with a full-range varint escape. This entropy change does not alter reconstructed pixels.
+- Parallelized independent motion searches and transform/reconstruction work with scalar fallback.
+- Replaced interleaved raw-YUV NUT playback after reproducing audio starvation, pitch drop, slowdown, and catch-up behavior.
+- Added a controlled native-decoder renderer with bounded queues, fixed-rate audio, monotonic scheduling, and explicit late-video dropping.
+- Added `ghvplay --stats [JSON]` telemetry and `ghvbench` encode/decode peak-memory reporting.
+- Added fixed 10/25/50/75/90 percent visual comparison extraction with `ghvframes.py`.
+- Added `SPEC_GHV_0.8.md` and retained `SPEC_GHV_0.7.md` unchanged.
+- Fixed Test A: 443.249 MiB GHVC7 -> **288.986 MiB GHVC8 (-34.80%)**, 45.421 dB / 0.984480.
+- Fixed Test B: 906.208 MiB GHVC7 -> **553.891 MiB GHVC8 (-38.88%)**, 46.671 dB / 0.990330.
+- Controlled Test B playback completed three consecutive runs with all 3121 frames shown, zero drops, zero freezes, and zero clock-speed events.
+
 ## GHV 0.7 / GHA 0.2 — Transform Compression
 
 - Added native **GHVC7 / GTC7**, an in-tree 8x8 integer transform codec.

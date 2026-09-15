@@ -1,6 +1,15 @@
 # GHV / GHA Roadmap
 
-## Current — GHV 0.7
+## Current — GHV 0.8
+
+- GHVC8/GTP8 16x16 local motion with RD selection.
+- Median MV prediction and delta-coded vectors.
+- Explicit zero-residual SKIP map and compact one-byte run/level classes.
+- Audio-master/monotonic controlled renderer with bounded queues and JSON telemetry.
+- Test A 288.986 MiB at 45.421 dB / 0.984480.
+- Test B 553.891 MiB at 46.671 dB / 0.990330; three controlled playback passes.
+
+## Retained — GHV 0.7
 
 - GHVC7 / GTC7 transform-domain codec.
 - 8x8 integer WHT, frequency-aware quantization, zig-zag, zero-run and varint levels.
@@ -24,7 +33,7 @@
 
 Primary objective: push Test A below 250 MiB without losing comfortable realtime decode.
 
-Planned research:
+Implemented foundations and continuing research:
 
 - coded-cost 8/16/32-block local motion and MV prediction;
 - Rice/canonical Huffman/range-style coefficient coding selected by measurements;
