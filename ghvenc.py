@@ -160,7 +160,8 @@ def encode_video_native(video_cmd, native_core: str, w: int, h: int, quality: in
 def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: int, h: int,
                                quality: int, keyint: int, scene_threshold: float,
                                motion_range: int, est_frames: int, fps_num: int,
-                               fps_den: int, threads: int = 0, codec: int = 7) -> int:
+                               fps_den: int, threads: int = 0, codec: int = 7,
+                               profile: bool = False) -> int:
     """Native core writes VFRM + INDX + header itself.
 
     Python never receives packed video frames, which removes one full copy and
@@ -173,6 +174,8 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
     cmd = [native_core, str(w), str(h), str(quality), str(keyint),
            str(scene_threshold), str(motion_range), str(out_path),
            str(est_frames), '--ghv', str(fps_num), str(fps_den), '--codec', str(codec)]
+    if profile:
+        cmd.append('--profile')
     env = os.environ.copy()
     if threads and threads > 0:
         env['OMP_NUM_THREADS'] = str(threads)
@@ -227,6 +230,7 @@ def main():
     ap.add_argument('--audio-quality', choices=['hq', 'compact'], default='hq')
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
     ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
+    ap.add_argument('--profile', action='store_true', help='print native per-stage timing')
     ap.add_argument('--codec', type=int, choices=[6, 7, 8], default=8, help='video codec version (default: GHVC8)')
     ap.add_argument('--no-audio', action='store_true')
     ap.add_argument('--audio-rate', type=int, default=0, help='0 = preserve source sample rate')
@@ -300,7 +304,7 @@ def main():
             frame_count = encode_video_native_direct(
                 video_cmd, native_core, out_path, w, h, quality, keyint,
                 scene_threshold, motion_range, est_frames, fps_num, fps_den,
-                max(0, args.threads), args.codec)
+                max(0, args.threads), args.codec, args.profile)
             with open(out_path, 'r+b') as f:
                 base_header = read_header(f)
                 # The native encoder has already written the complete video

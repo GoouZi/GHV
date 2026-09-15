@@ -1,11 +1,37 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, os, re, shutil, struct, subprocess, sys, tempfile, threading, time
+import argparse, json, os, platform, re, shutil, struct, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
 
 ROOT = Path(__file__).resolve().parent
 RESULT_RE = re.compile(r'RESULT\s+frames=(\d+)\s+duration=([0-9.]+)\s+size_mib=([0-9.]+)\s+elapsed=([0-9.]+)\s+avg_fps=([0-9.]+)')
+PROFILE_VALUE_RE = re.compile(r'([a-z_]+)=([0-9.]+)')
+
+
+def parse_profile_line(lines, marker: str):
+    line = next((x for x in reversed(lines) if marker in x), None)
+    if not line:
+        return None
+    return {key: float(value) for key, value in PROFILE_VALUE_RE.findall(line)}
+
+
+def system_info():
+    info = {
+        'cpu_model': os.environ.get('PROCESSOR_IDENTIFIER') or platform.processor() or 'unknown',
+        'logical_cores': os.cpu_count(),
+        'platform': platform.platform(),
+    }
+    if os.name == 'nt':
+        try:
+            cmd = ['powershell', '-NoProfile', '-Command',
+                   'Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name | ConvertTo-Json -Compress']
+            raw = subprocess.check_output(cmd, text=True, encoding='utf-8', errors='replace', timeout=8).strip()
+            gpu = json.loads(raw) if raw else []
+            info['gpu_models'] = gpu if isinstance(gpu, list) else [gpu]
+        except Exception:
+            info['gpu_models'] = []
+    return info
 
 
 class PeakMemory:
@@ -51,15 +77,18 @@ def inspect_output(path: Path):
     return h,codec
 
 
-def measure_decode(path: Path,frames: int):
+def measure_decode(path: Path,frames: int,profile: bool = False):
     dec=ROOT/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
     if not dec.is_file():return None
     h,_=inspect_output(path);n=h.frame_count if frames==0 else max(1,min(h.frame_count,frames))
-    p=subprocess.Popen([str(dec),str(path),'--no-output','--verify','--frames',str(n)],
+    cmd=[str(dec),str(path),'--no-output','--verify','--frames',str(n)]
+    if profile:cmd.append('--profile')
+    p=subprocess.Popen(cmd,
                      stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
     mem=PeakMemory(p.pid).start();_,err=p.communicate();peak=mem.finish()
-    if p.returncode:return None,peak
-    m=re.search(r'fps=([0-9.]+)',err);return (float(m.group(1)) if m else None),peak
+    if p.returncode:return None,peak,None
+    m=re.search(r'fps=([0-9.]+)',err)
+    return (float(m.group(1)) if m else None),peak,parse_profile_line(err.splitlines(),'GHV_DECODE_PROFILE')
 
 
 def measure_quality(source: Path,path: Path):
@@ -96,6 +125,7 @@ def main():
     ap.add_argument('--quality-metrics',action='store_true',help='measure full-file PSNR and SSIM')
     ap.add_argument('--report-json',help='also save the structured report to this path')
     ap.add_argument('--playback-runs',type=int,default=0,help='run controlled full playback N times and include telemetry')
+    ap.add_argument('--profile',action='store_true',help='include native encode/decode stage timings')
     ap.add_argument('--keep', action='store_true', help='keep auto-created output')
     ap.add_argument('--json', action='store_true')
     args = ap.parse_args()
@@ -115,6 +145,8 @@ def main():
            '--audio-quality', args.audio_quality, '--codec', str(args.codec)]
     if args.threads > 0:
         cmd += ['--threads', str(args.threads)]
+    if args.profile:
+        cmd.append('--profile')
 
     t0 = time.perf_counter(); lines=[]
     p = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -150,11 +182,15 @@ def main():
         'size_change_percent': ((out_size / in_size - 1.0) * 100.0) if in_size else None,
         'wall_seconds': wall, 'verified': verified, 'encode_peak_memory_bytes': encode_peak,
         'output_bitrate_bps': (out_size*8/(h.duration_us/1e6)) if h.duration_us else None,
+        'system': system_info(),
     }
     if result:
         report.update(frames=int(result.group(1)), duration_seconds=float(result.group(2)),
                       encoder_elapsed_seconds=float(result.group(4)), avg_fps=float(result.group(5)))
-    report['decode_fps'],report['decode_peak_memory_bytes']=measure_decode(out,args.decode_frames)
+    report['decode_fps'],report['decode_peak_memory_bytes'],decode_profile=measure_decode(out,args.decode_frames,args.profile)
+    if args.profile:
+        report['encode_profile']=parse_profile_line(lines,'GHV_ENCODE_PROFILE')
+        report['decode_profile']=decode_profile
     if args.quality_metrics:report.update(measure_quality(src,out))
     if args.playback_runs>0:
         report['playback']=[]

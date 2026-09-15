@@ -252,7 +252,7 @@ static std::vector<uint8_t> zrun_wrap(const std::vector<uint8_t>& in){
 
 int main(int argc,char** argv){
     if(argc<9){
-        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN] [--codec 6|7|8]\n";
+        std::cerr<<"usage: ghvcore WIDTH HEIGHT QUALITY KEYINT SCENE_THRESHOLD MOTION_RANGE OUTPUT|- EXPECTED_FRAMES [--ghv FPS_NUM FPS_DEN] [--codec 6|7|8] [--profile]\n";
         return 2;
     }
     std::ios::sync_with_stdio(false);std::cin.tie(nullptr);
@@ -264,12 +264,13 @@ int main(int argc,char** argv){
     int motion_range=std::clamp(std::stoi(argv[6]),0,31);
     std::string outpath=argv[7];
     uint64_t expected=std::stoull(argv[8]);
-    bool ghv_mode=false;int codec=6;
+    bool ghv_mode=false,profile_enabled=false;int codec=6;
     uint32_t fps_num=30,fps_den=1;
     for(int ai=9;ai<argc;ai++){
         std::string a=argv[ai];
         if(a=="--ghv"&&ai+2<argc){ghv_mode=true;fps_num=uint32_t(std::stoul(argv[++ai]));fps_den=uint32_t(std::stoul(argv[++ai]));}
         else if(a=="--codec"&&ai+1<argc)codec=std::stoi(argv[++ai]);
+        else if(a=="--profile")profile_enabled=true;
         else {std::cerr<<"invalid option: "<<a<<"\n";return 2;}
     }
     if((codec!=6&&codec!=7&&codec!=8)||(ghv_mode&&(fps_num==0||fps_den==0||outpath=="-"))){std::cerr<<"invalid codec/--ghv arguments\n";return 2;}
@@ -295,18 +296,21 @@ int main(int argc,char** argv){
     std::vector<std::pair<uint64_t,uint8_t>> index;
     if(ghv_mode && expected>0 && expected<100000000ull) index.reserve(size_t(expected));
     uint64_t count=0,repeats=0,pframes=0,iframes=0,mv_nonzero=0,mv_total=0,zero_blocks=0;
-    auto start=std::chrono::steady_clock::now();
+    auto start=std::chrono::steady_clock::now();ghvc8::Profile codec_profile;
+    uint64_t input_ns=0,decision_ns=0,codec_ns=0,io_ns=0;
     const int dz=residual_deadzone(quality),rstep=residual_step(quality);
     const double rpt=repeat_threshold(quality);
 
     while(true){
+        auto input_t0=std::chrono::steady_clock::now();
         std::cin.read(reinterpret_cast<char*>(frame.data()),std::streamsize(frame_size));
+        input_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-input_t0).count());
         std::streamsize got=std::cin.gcount();
         if(got==0)break;
         if(size_t(got)!=frame_size){std::cerr<<"truncated raw frame\n";return 4;}
 
         if(codec==6)quantize(frame,w,h,quality);
-        bool force_i=(count%uint64_t(keyint)==0)||prev.empty();
+        auto decision_t0=std::chrono::steady_clock::now();bool force_i=(count%uint64_t(keyint)==0)||prev.empty();
         uint8_t type=0;int dx=0,dy=0;std::vector<uint8_t> packed;
         double sc=prev.empty()?1e30:scene_score(frame,prev,w,h);
         double repeat_sc=source_repeat_score(frame,source_samples,w,h);
@@ -315,7 +319,8 @@ int main(int argc,char** argv){
         }else if(!force_i&&sc<scene_threshold){
             type=1;pframes++;
             if(codec==8){
-                packed=ghvc8::encode(frame,prev,w,h,quality,motion_range,recon,&zero_blocks,&mv_nonzero);
+                auto codec_t0=std::chrono::steady_clock::now();packed=ghvc8::encode(frame,prev,w,h,quality,motion_range,recon,&zero_blocks,&mv_nonzero,profile_enabled?&codec_profile:nullptr);
+                codec_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-codec_t0).count());
                 mv_total+=uint64_t((w+15)/16)*uint64_t((h+15)/16);
             }else if(codec==7){
                 packed=ghvc7::encode(frame,&prev,w,h,quality,false,recon,&zero_blocks);
@@ -339,7 +344,9 @@ int main(int argc,char** argv){
         if(type!=2&&codec==6)packed=zrun_wrap(packed);
         capture_source_samples(frame,source_samples,w,h);
         uint32_t chk=crc32(recon.data(),recon.size());
+        decision_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-decision_t0).count());
 
+        auto io_t0=std::chrono::steady_clock::now();
         if(ghv_mode){
             uint64_t off=uint64_t(out.tellp());
             index.push_back({off,type});
@@ -354,6 +361,7 @@ int main(int argc,char** argv){
             write_u32(out,uint32_t(frame_size));write_u32(out,uint32_t(packed.size()));write_u32(out,chk);
         }
         if(!packed.empty())out.write(reinterpret_cast<const char*>(packed.data()),std::streamsize(packed.size()));
+        io_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-io_t0).count());
         if(!out){std::cerr<<"output write failed\n";return 5;}
         prev.swap(recon);count++;
 
@@ -406,5 +414,17 @@ int main(int argc,char** argv){
     <<" zero_blocks="<<zero_blocks
     <<" elapsed="<<sec<<" fps="<<(count/std::max(sec,1e-6))
     <<" mode="<<(ghv_mode?"ghv-direct":"stream")<<"\n";
+    if(profile_enabled){
+        auto ms=[](uint64_t ns){return double(ns)/1000000.0;};
+        std::cerr<<"GHV_ENCODE_PROFILE input_ms="<<ms(input_ns)
+                 <<" decision_total_ms="<<ms(decision_ns)<<" codec_p_ms="<<ms(codec_ns)
+                 <<" motion_cpu_ms="<<ms(codec_profile.motion_search_ns.load())
+                 <<" rd_cpu_ms="<<ms(codec_profile.rd_ns.load())
+                 <<" mv_entropy_ms="<<ms(codec_profile.mv_entropy_ns)
+                 <<" transform_quant_ms="<<ms(codec_profile.transform_quant_ns)
+                 <<" coeff_entropy_ms="<<ms(codec_profile.coeff_entropy_ns)
+                 <<" reconstruction_ms="<<ms(codec_profile.reconstruction_ns)
+                 <<" io_ms="<<ms(io_ns)<<" p_frames="<<codec_profile.p_frames<<"\n";
+    }
     return 0;
 }
