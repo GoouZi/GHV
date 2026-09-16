@@ -3,7 +3,7 @@ param(
     [string]$OutputRoot = ''
 )
 $ErrorActionPreference = 'Stop'
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot 'releases' }
 $packageName = 'GHV_Player_Windows_x64'
 $packageDir = Join-Path $OutputRoot $packageName
