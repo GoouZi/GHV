@@ -37,7 +37,7 @@ FFmpeg is used by conversion tools to read source media; it does not encode or
 decode GHVC/GHAC.
 
 The authoritative project, codec, Studio, Player, and library versions live in
-[`VERSION.json`](VERSION.json). Run `python ghvversion.py` to inspect them.
+[`VERSION.json`](VERSION.json). Run `ghvversion` to inspect them.
 
 ## Current status
 
@@ -110,16 +110,16 @@ slow video path.
 
 ## Included tools
 
-- `ghvenc.py` / `ghaenc.py` — source-media conversion to GHV/GHA.
+- `ghvenc` / `ghaenc` — source-media conversion to GHV/GHA.
 - `native/ghvcore.cpp` / `native/ghvdecode.cpp` — native GHVC encoder/decoder.
 - `libghv/` — C++ decoder foundation with metadata, indexed seek, YUV and PCM.
-- `scripts/windows/studio_ghv.bat` / `studio_gha.bat` — development desktop frontends.
+- `ghv-studio` / `gha-studio` — development desktop frontends.
 - `GHV Player.exe` source — native Windows D3D11/WASAPI validation player.
-- `ghvverify.py` — index, full decode, and reconstructed-frame CRC verification.
-- `ghvrepair.py` — rebuild an index from intact frame records.
-- `ghvdoctor.py` — decoder/playback throughput diagnostics.
-- `ghvbench.py` — structured encode/decode/quality/profile benchmark reports.
-- `ghvframes.py` — fixed-position source/decoded visual comparisons.
+- `ghvverify` — index, full decode, and reconstructed-frame CRC verification.
+- `ghvrepair` — rebuild an index from intact frame records.
+- `ghvdoctor` — decoder/playback throughput diagnostics.
+- `ghvbench` — structured encode/decode/quality/profile benchmark reports.
+- `ghvframes` — fixed-position source/decoded visual comparisons.
 
 The Player and Studios are beta development tools. Ecosystem expansion is
 currently paused while GHVC/GHAC mature.
@@ -138,10 +138,18 @@ Required for the native core:
 - CMake for the full libghv/Player build
 - OpenMP is optional but recommended
 
+### Python tools — Windows, macOS, and Linux
+
+```text
+python -m pip install -e .
+```
+
+This editable install provides all documented console commands. The legacy
+`requirements.txt` entry remains available for existing setup automation.
+
 ### Windows
 
 ```powershell
-python -m pip install -r requirements.txt
 native\build_windows.bat
 ```
 
@@ -153,8 +161,8 @@ cmake --build native/build --config Release
 scripts\windows\test_all.bat
 ```
 
-Visual Studio Build Tools is the best-tested compiler path. `scripts\windows\setup.bat`
-provides an interactive setup helper.
+Visual Studio Build Tools is the best-tested compiler path.
+`scripts\windows\setup.bat` provides an interactive setup helper.
 
 ### Linux and macOS
 
@@ -167,28 +175,28 @@ Windows milestone's full A/B/C and playback acceptance pass.
 Encode video and embedded audio with the current Balanced GHVC9/GHAC1 path:
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --codec 9 --preset balanced
+ghvenc input.mp4 output.ghv --codec 9 --preset balanced
 ```
 
 Encode standalone audio:
 
 ```powershell
-python ghaenc.py input.wav output.gha --mode hq
+ghaenc input.wav output.gha --mode hq
 ```
 
 Inspect, verify, diagnose, or repair:
 
 ```powershell
-python ghvinfo.py output.ghv
-python ghvverify.py output.ghv
-python ghvdoctor.py output.ghv --verify
-python ghvrepair.py damaged.ghv repaired.ghv
+ghvinfo output.ghv
+ghvverify output.ghv
+ghvdoctor output.ghv --verify
+ghvrepair damaged.ghv repaired.ghv
 ```
 
 Run a reproducible full benchmark:
 
 ```powershell
-python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --quality-metrics --decode-frames 0 --report-json report.json
+ghvbench input.mp4 output.ghv --codec 9 --preset balanced --profile --quality-metrics --decode-frames 0 --report-json report.json
 ```
 
 Use `--help` on each tool for the complete current CLI. Generated `.ghv`,
@@ -211,7 +219,7 @@ format evolution can be audited from the Git history.
 - Project releases use SemVer-style beta tags, such as `v0.9.0-beta.1`.
 - Codec milestones use separate tags, such as `ghv-0.9-m1`.
 - `main` is the latest tested public beta, not a claim of 1.0 stability.
-- Active codec work happens on generation branches such as `codex/ghvc9`.
+- Active codec work happens on generation branches such as `dev/ghvc9`.
 - A logical milestone is built, tested, committed, and pushed; GitHub history is
   the project's permanent development record.
 - Existing stable recovery tags are immutable. GHVC8 remains recoverable at

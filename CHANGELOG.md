@@ -4,6 +4,11 @@
 
 ### Repository
 
+- Renamed public codec branches from internal tool-prefixed names to
+  `dev/ghvc9` and `archive/ghvc7`/`archive/ghvc8` without changing history.
+- Packaged the Python tools as installable `ghv.cli` modules with stable console
+  commands and moved both Studio frontends under `apps/`.
+- Moved reproducible Windows Player packaging into `scripts/packaging/windows/`.
 - Organized specifications, architecture, API, integration, history, workflow,
   and recovery documents under an indexed `docs/` hierarchy.
 - Consolidated useful Windows helpers under `scripts/windows/`, removed thin

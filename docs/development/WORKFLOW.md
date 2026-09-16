@@ -8,7 +8,8 @@ benchmark milestones; do not replace the repository with a new snapshot.
 
 - `main`: latest build-tested public beta milestone. Beta does not mean 1.0 or
   production-ready.
-- `codex/ghvcN`: active work for a codec generation.
+- `dev/ghvcN`: active work for a codec generation.
+- `archive/ghvcN`: retained historical generation branches with long-term value.
 - `backup/*`: immutable recovery references with continuing long-term value.
 
 Use a new codec-generation branch only for a real bitstream/architecture

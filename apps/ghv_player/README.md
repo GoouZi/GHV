@@ -24,7 +24,7 @@ always aspect-fit with letterboxing/pillarboxing. Resizing and fullscreen only
 change the D3D11 viewport and never restart decoding or the audio clock.
 
 Diagnostic automation can add `--stats FILE.json --exit-at-eof`. Normal users
-do not see telemetry controls. `ghvplay.py` remains the separate developer and
+do not see telemetry controls. `ghvplay` remains the separate developer and
 diagnostic player for codec work.
 
 Windows 10/11 x64 is the tested platform. The package includes the Microsoft

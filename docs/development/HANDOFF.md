@@ -7,7 +7,7 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 ## Identity
 
 - Repository: **https://github.com/GoouZi/GHV**
-- Current branch: **`codex/ghvc9`** (published beta is promoted to `main` after validation)
+- Current branch: **`dev/ghvc9`** (published beta is promoted to `main` after validation)
 - Current project beta version: **0.9.0-beta.1**
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
@@ -137,11 +137,11 @@ Playback:
 
 Tools:
 
-- `ghvverify.py`: complete decode + CRC verification;
-- `ghvdoctor.py`: measures decoder fps **and decoder→FFmpeg pipe** realtime headroom;
-- `ghvbench.py`: repeatable encode/verify/decode/quality benchmark with optional JSON report;
-- `ghvinfo.py`: format inspection;
-- `ghvrepair.py`: rebuilds the frame index from intact VFRM records.
+- `ghvverify`: complete decode + CRC verification;
+- `ghvdoctor`: measures decoder fps **and decoder→FFmpeg pipe** realtime headroom;
+- `ghvbench`: repeatable encode/verify/decode/quality benchmark with optional JSON report;
+- `ghvinfo`: format inspection;
+- `ghvrepair`: rebuilds the frame index from intact VFRM records.
 
 ## Fixed real-video benchmark (2026-09-14)
 
@@ -270,9 +270,9 @@ the codec structure is more mature.
 ## Reproduce
 
 ```text
-python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
-python ghvdoctor.py output.ghv --frames 999999 --verify
-python ghvplay.py output.ghv --engine native
+ghvbench input.mp4 output.ghv --codec 9 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+ghvdoctor output.ghv --frames 999999 --verify
+ghvplay output.ghv --engine native
 ```
 
 ## Next major milestone

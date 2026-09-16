@@ -32,7 +32,7 @@ GHV 是一个实验性的开放视频/音频格式项目，核心目标是：**�
 
 GHVC/GHAC 是本项目自己的 codec。FFmpeg 只用于转换工具读取输入媒体，不负责
 编码或解码 GHVC/GHAC。版本唯一来源是 [`VERSION.json`](VERSION.json)，也可以运行
-`python ghvversion.py` 查看。
+`ghvversion` 查看。
 
 ## 最新验证 Benchmark
 
@@ -60,8 +60,15 @@ native CRC、完整 PSNR/SSIM。机器为 Windows 11、Intel64 Family 6 Model 18
 转换需要 Python 3.10+、FFmpeg/ffprobe 和 `requirements.txt` 中的依赖。Native core
 需要 C++17 compiler；完整 libghv/Windows Player build 使用 CMake。
 
+Python 工具在 Windows、macOS 与 Linux 上使用同一个 editable install：
+
+```text
+python -m pip install -e .
+```
+
+Windows native build 与完整测试：
+
 ```powershell
-python -m pip install -r requirements.txt
 native\build_windows.bat
 cmake -S native -B native/build
 cmake --build native/build --config Release
@@ -75,12 +82,12 @@ Windows + Visual Studio Build Tools 是当前完整验证路径。Linux/macOS �
 ## 基本使用
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --codec 9 --preset balanced
-python ghaenc.py input.wav output.gha --mode hq
-python ghvverify.py output.ghv
-python ghvdoctor.py output.ghv --verify
-python ghvrepair.py damaged.ghv repaired.ghv
-python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --quality-metrics --decode-frames 0 --report-json report.json
+ghvenc input.mp4 output.ghv --codec 9 --preset balanced
+ghaenc input.wav output.gha --mode hq
+ghvverify output.ghv
+ghvdoctor output.ghv --verify
+ghvrepair damaged.ghv repaired.ghv
+ghvbench input.mp4 output.ghv --codec 9 --preset balanced --profile --quality-metrics --decode-frames 0 --report-json report.json
 ```
 
 当前真实工具还包括 GHV/GHA Studio、native encoder/decoder、libghv、Windows 原生
