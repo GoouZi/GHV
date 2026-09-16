@@ -106,4 +106,4 @@ decoder 和完整公开规范。
 
 ## License
 
-当前许可证以 [`LICENSE`](LICENSE) 为准。
+Reference implementation 使用 [Apache License 2.0](LICENSE)。

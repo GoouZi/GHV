@@ -232,6 +232,6 @@ cross-platform reference decoding, and a complete public specification.
 
 ## License
 
-The active license is recorded in [`LICENSE`](LICENSE). See the repository
-history for provenance. No claim is made that an experimental codec is free of
-all possible third-party patent claims in every jurisdiction.
+The reference implementation is licensed under the
+[Apache License 2.0](LICENSE). No claim is made that an experimental codec is
+free of all possible third-party patent claims in every jurisdiction.

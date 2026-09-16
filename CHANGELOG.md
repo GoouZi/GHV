@@ -41,6 +41,8 @@
   `VERSION.json`; Studio and primary CLI version displays now read it.
 - Refreshed the public README and repository workflow for the first formal
   GitHub beta while retaining the complete local and pre-existing GitHub history.
+- Confirmed Apache-2.0 as the public reference-implementation license while
+  merging the existing GitHub repository history without squashing or force push.
 
 ## Unreleased — GHVC8 Native Performance
 

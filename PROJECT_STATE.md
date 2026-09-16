@@ -17,7 +17,7 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 - GHV Studio: **0.9.0-beta.1**
 - GHA Studio: **0.2.0-beta.1**
 - Authoritative version source: **`VERSION.json`**
-- License: MIT
+- License: Apache-2.0
 - Legacy project names GVID / GAUD are retired.
 
 ## User real-world benchmark history
