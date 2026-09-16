@@ -94,6 +94,7 @@ python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --
 - [GHA 0.2](SPEC_GHA_0.2.md)
 - [Roadmap](ROADMAP.md)
 - [Changelog](CHANGELOG.md)
+- [开发与 Git 工作流](DEVELOPMENT.md)
 
 `main` 表示最新已验证公开 Beta，不代表 1.0。开发 milestone 在 generation branch
 完成 build/test 后独立 commit 并 push；project release 使用 `v0.x.x-beta.x` tag，
@@ -106,4 +107,3 @@ decoder 和完整公开规范。
 ## License
 
 当前许可证以 [`LICENSE`](LICENSE) 为准。
-

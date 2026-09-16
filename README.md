@@ -224,6 +224,7 @@ cross-platform reference decoding, and a complete public specification.
 ## Project documentation
 
 - [Current project state](PROJECT_STATE.md)
+- [Development and Git workflow](DEVELOPMENT.md)
 - [Roadmap](ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 - [GHVC8 recovery instructions](RESTORE_GHVC8_STABLE.md)
