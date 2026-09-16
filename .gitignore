@@ -55,6 +55,8 @@ benchmarks/raw/
 benchmarks/telemetry/
 benchmarks/**/raw-*.json
 benchmarks/**/*telemetry*.json
+benchmarks/playback_test_*.json
+benchmarks/**/playback_test_*.json
 *.trace.json
 
 # Private notes and machine-local working state
