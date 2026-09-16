@@ -1,0 +1,1 @@
+"""GHA Studio desktop frontend."""

@@ -1,0 +1,1 @@
+"""GHV Studio desktop frontend."""

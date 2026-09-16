@@ -3,9 +3,10 @@ from __future__ import annotations
 import os, subprocess, sys, threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from ghv.paths import PROJECT_ROOT
 from ghv.version import CURRENT_GHVC, GHV_STUDIO_VERSION, PROJECT_STATUS
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = PROJECT_ROOT
 
 
 def parse_progress(line: str):
@@ -131,7 +132,7 @@ class App(tk.Tk):
         if not out:
             out = os.path.splitext(inp)[0] + '.ghv'
             self.outfile.set(out)
-        cmd = [sys.executable, os.path.join(ROOT, 'ghvenc.py'), inp, out,
+        cmd = [sys.executable, '-m', 'ghv.cli.encode', inp, out,
                '--preset', self.preset.get(), '--audio-quality', self.audio_mode.get()]
         if self.threads.get() != 'Auto':
             cmd += ['--threads', self.threads.get()]
@@ -173,7 +174,7 @@ class App(tk.Tk):
     def play_file(self):
         p = filedialog.askopenfilename(title='Play GHV', filetypes=[('GHV video', '*.ghv'), ('All files', '*.*')])
         if p:
-            cmd = [sys.executable, os.path.join(ROOT, 'ghvplay.py'), p]
+            cmd = [sys.executable, '-m', 'ghv.cli.play', p]
             if self.play_buffer.get() != 'Auto':
                 cmd += ['--buffer', self.play_buffer.get()]
             subprocess.Popen(cmd, cwd=ROOT)
@@ -183,7 +184,7 @@ class App(tk.Tk):
         if not p:
             return
         try:
-            text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvinfo.py'), p], cwd=ROOT, text=True, encoding='utf-8', errors='replace')
+            text = subprocess.check_output([sys.executable, '-m', 'ghv.cli.info', p], cwd=ROOT, text=True, encoding='utf-8', errors='replace')
             messagebox.showinfo('GHV info', text)
         except Exception as e:
             messagebox.showerror('GHV', str(e))
@@ -196,7 +197,7 @@ class App(tk.Tk):
         self.status.set('Verifying…')
         def worker():
             try:
-                text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvverify.py'), p], cwd=ROOT, text=True, encoding='utf-8', errors='replace', stderr=subprocess.STDOUT)
+                text = subprocess.check_output([sys.executable, '-m', 'ghv.cli.verify', p], cwd=ROOT, text=True, encoding='utf-8', errors='replace', stderr=subprocess.STDOUT)
                 self.after(0, messagebox.showinfo, 'GHV Verify', text.strip())
                 self.after(0, self.status.set, 'Verification passed')
             except subprocess.CalledProcessError as e:
@@ -213,7 +214,7 @@ class App(tk.Tk):
         self.status.set('Diagnosing playback…')
         def worker():
             try:
-                text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvdoctor.py'), p], cwd=ROOT, text=True, encoding='utf-8', errors='replace', stderr=subprocess.STDOUT)
+                text = subprocess.check_output([sys.executable, '-m', 'ghv.cli.doctor', p], cwd=ROOT, text=True, encoding='utf-8', errors='replace', stderr=subprocess.STDOUT)
                 self.after(0, messagebox.showinfo, 'GHV Playback Diagnosis', text.strip())
                 self.after(0, self.status.set, 'Diagnosis complete')
             except subprocess.CalledProcessError as e:
@@ -231,7 +232,7 @@ class App(tk.Tk):
         self.status.set('Repairing index…')
         def worker():
             try:
-                text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghvrepair.py'), p, out],
+                text = subprocess.check_output([sys.executable, '-m', 'ghv.cli.repair', p, out],
                                                cwd=ROOT, text=True, encoding='utf-8', errors='replace',
                                                stderr=subprocess.STDOUT)
                 self.after(0, messagebox.showinfo, 'GHV Repair', text.strip())
@@ -246,8 +247,12 @@ class App(tk.Tk):
     def build_native(self):
         if os.name != 'nt':
             return messagebox.showinfo('GHV', 'On Linux/macOS, run native/build_linux.sh / build_macos.sh. This builds ghvcore + ghvdecode.')
-        subprocess.Popen(['cmd', '/c', os.path.join(ROOT, 'native', 'build_windows.bat')], cwd=ROOT)
+        subprocess.Popen(['cmd', '/c', str(ROOT / 'native' / 'build_windows.bat')], cwd=ROOT)
+
+
+def main():
+    App().mainloop()
 
 
 if __name__ == '__main__':
-    App().mainloop()
+    main()

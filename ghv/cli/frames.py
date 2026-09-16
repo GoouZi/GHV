@@ -5,6 +5,7 @@ import argparse,os,shutil,subprocess,tempfile
 from pathlib import Path
 import numpy as np
 from ghv.container import read_header
+from ghv.paths import native_binary
 
 POINTS=(.10,.25,.50,.75,.90)
 
@@ -15,7 +16,7 @@ def main():
     source=Path(a.source).resolve();ghv=Path(a.ghv).resolve();out=Path(a.output_dir).resolve();out.mkdir(parents=True,exist_ok=True)
     with open(ghv,'rb') as f:h=read_header(f)
     targets=[min(h.frame_count-1,int(round((h.frame_count-1)*p))) for p in POINTS]
-    ffmpeg=shutil.which('ffmpeg');dec=Path(__file__).resolve().parent/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
+    ffmpeg=shutil.which('ffmpeg');dec=native_binary('ghvdecode')
     if not ffmpeg or not dec.is_file():raise SystemExit('ffmpeg and native ghvdecode are required')
     with tempfile.TemporaryDirectory(prefix='ghvframes_') as td:
         tmp=Path(td);expr='+'.join(f'eq(n\\,{n})' for n in targets)

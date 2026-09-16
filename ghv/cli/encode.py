@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ghv.codec4 import quantize_yuv420, encode_frame as encode_frame4
 from ghv.gha import encode_pcm16le as encode_ghac1
+from ghv.paths import native_binary
 from ghv.version import version_summary
 from ghv.container import (Header, HEADER_SIZE, FRAME_FMT, AUDIO_FMT,
                            INDEX_HEAD_FMT, INDEX_ENTRY_FMT, VFRM, AUD0, INDX,
@@ -67,12 +68,9 @@ def duration_seconds(vs, fmt) -> float:
 
 
 def find_native_core() -> str | None:
-    base = Path(__file__).resolve().parent / 'native' / 'bin'
-    names = ['ghvcore.exe'] if os.name == 'nt' else ['ghvcore']
-    for n in names:
-        p = base / n
-        if p.is_file():
-            return str(p)
+    p = native_binary('ghvcore')
+    if p.is_file():
+        return str(p)
     return None
 
 

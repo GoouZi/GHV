@@ -10,7 +10,7 @@ def main():
     src=ROOT/'tests'/'sample.mp4';dec=ROOT/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
     out=ROOT/'tests'/'_selftest_v09.ghv';bad=ROOT/'tests'/'_selftest_v09_bad.ghv';repaired=ROOT/'tests'/'_selftest_v09_repaired.ghv'
     try:
-        p=subprocess.run([sys.executable,str(ROOT/'ghvenc.py'),str(src),str(out),'--preset','balanced','--native','on','--codec','9','--no-audio'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
+        p=subprocess.run([sys.executable,'-m','ghv.cli.encode',str(src),str(out),'--preset','balanced','--native','on','--codec','9','--no-audio'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
         if p.returncode:print(p.stdout);raise RuntimeError('GHVC9 encode failed')
         first_p=None
         with open(out,'rb') as f:
@@ -35,7 +35,7 @@ def main():
             q=subprocess.run([str(dec),str(bad),'--verify','--no-output'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             assert q.returncode!=0
             print('[PASS] GHVC9 malformed chunk table rejected safely')
-        p=subprocess.run([sys.executable,str(ROOT/'ghvrepair.py'),str(out),str(repaired)],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
+        p=subprocess.run([sys.executable,'-m','ghv.cli.repair',str(out),str(repaired)],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
         if p.returncode:raise RuntimeError('GHVC9 repair failed: '+p.stdout)
         with open(repaired,'rb') as f:rh=read_header(f);ridx=read_index(f,rh);assert rh.minor==9 and len(ridx)==rh.frame_count
         print('[PASS] GHV 0.9 / GHVC9 self-test complete')

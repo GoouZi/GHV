@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from .paths import PROJECT_ROOT
 
-_ROOT = Path(__file__).resolve().parent.parent
-_DATA = json.loads((_ROOT / "VERSION.json").read_text(encoding="utf-8"))
+_DATA = json.loads((PROJECT_ROOT / "VERSION.json").read_text(encoding="utf-8"))
 
 PROJECT_VERSION = str(_DATA["project_version"])
 PROJECT_STATUS = str(_DATA["project_status"])

@@ -20,7 +20,7 @@ def main():
 
     out = ROOT / 'tests' / '_selftest_v06.ghv'
     if native_core.exists():
-        cmd = [sys.executable, str(ROOT / 'ghvenc.py'), str(src), str(out),
+        cmd = [sys.executable, '-m', 'ghv.cli.encode', str(src), str(out),
                '--preset', 'balanced', '--native', 'on', '--codec', '6']
         p = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                            text=True, encoding='utf-8', errors='replace')
@@ -66,7 +66,7 @@ def main():
     print(f'[PASS] GHA 0.2 / GHAC1 decode: {frames} frames @ {sr} Hz / {ch} ch')
 
     repaired = ROOT / 'tests' / '_selftest_v06_repaired.ghv'
-    p = subprocess.run([sys.executable, str(ROOT / 'ghvrepair.py'), str(out), str(repaired)],
+    p = subprocess.run([sys.executable, '-m', 'ghv.cli.repair', str(out), str(repaired)],
                        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                        text=True, encoding='utf-8', errors='replace')
     if p.returncode:

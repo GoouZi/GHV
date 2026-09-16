@@ -1,8 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0..\.."
-echo [GHV 0.9 Beta] Installing Python runtime dependencies...
-python -m pip install -r requirements.txt
+echo [GHV 0.9 Beta] Installing the editable Python package and runtime dependencies...
+python -m pip install -e .
 if errorlevel 1 (
   echo.
   echo Setup failed. Make sure Python 3.10+ is installed and available as "python".
@@ -39,5 +39,5 @@ echo [GHV] C++ compiler detected; building native GHVC6-GHVC9 encoder + decoder.
 call native\build_windows.bat
 :done
 echo.
-echo [GHV] Setup complete. Run scripts\windows\studio_ghv.bat or studio_gha.bat.
+echo [GHV] Setup complete. Use ghvenc/ghaenc or run the Studio launchers in scripts\windows.
 pause

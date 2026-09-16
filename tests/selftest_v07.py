@@ -17,7 +17,7 @@ def main():
     out = ROOT / 'tests' / '_selftest_v07.ghv'
     repaired = ROOT / 'tests' / '_selftest_v07_repaired.ghv'
     try:
-        cmd = [sys.executable, str(ROOT/'ghvenc.py'), str(src), str(out),
+        cmd = [sys.executable, '-m', 'ghv.cli.encode', str(src), str(out),
                '--preset', 'balanced', '--native', 'on', '--codec', '7']
         p = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                            text=True, encoding='utf-8', errors='replace')
@@ -37,7 +37,7 @@ def main():
         if p.returncode: raise RuntimeError('GHVC7 native decode/CRC failed: '+p.stderr)
         print('[PASS] GHVC7 native decode + CRC')
 
-        p=subprocess.run([sys.executable,str(ROOT/'ghvrepair.py'),str(out),str(repaired)],
+        p=subprocess.run([sys.executable,'-m','ghv.cli.repair',str(out),str(repaired)],
                          cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
                          text=True,encoding='utf-8',errors='replace')
         if p.returncode: print(p.stdout);raise RuntimeError('GHVC7 repair failed')

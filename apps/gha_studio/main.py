@@ -3,9 +3,10 @@ from __future__ import annotations
 import os, subprocess, sys, threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from ghv.paths import PROJECT_ROOT
 from ghv.version import CURRENT_GHAC, GHA_STUDIO_VERSION, PROJECT_STATUS
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = PROJECT_ROOT
 
 
 class App(tk.Tk):
@@ -69,7 +70,7 @@ class App(tk.Tk):
             return messagebox.showwarning('GHA', 'Choose a valid input file first.')
         if not out:
             out = os.path.splitext(inp)[0] + '.gha'; self.outfile.set(out)
-        cmd = [sys.executable, os.path.join(ROOT, 'ghaenc.py'), inp, out, '--mode', self.mode.get()]
+        cmd = [sys.executable, '-m', 'ghv.cli.audio_encode', inp, out, '--mode', self.mode.get()]
         self.status.set('Encoding…'); self.enc_btn.state(['disabled'])
         self.append('\n$ ' + subprocess.list2cmdline(cmd) + '\n')
 
@@ -89,18 +90,22 @@ class App(tk.Tk):
     def play(self):
         p = filedialog.askopenfilename(title='Play GHA', filetypes=[('GHA audio', '*.gha'), ('All files', '*.*')])
         if p:
-            subprocess.Popen([sys.executable, os.path.join(ROOT, 'ghaplay.py'), p], cwd=ROOT)
+            subprocess.Popen([sys.executable, '-m', 'ghv.cli.audio_play', p], cwd=ROOT)
 
     def info(self):
         p = filedialog.askopenfilename(title='Inspect GHA', filetypes=[('GHA audio', '*.gha'), ('All files', '*.*')])
         if not p:
             return
         try:
-            text = subprocess.check_output([sys.executable, os.path.join(ROOT, 'ghainfo.py'), p], cwd=ROOT, text=True, encoding='utf-8', errors='replace')
+            text = subprocess.check_output([sys.executable, '-m', 'ghv.cli.audio_info', p], cwd=ROOT, text=True, encoding='utf-8', errors='replace')
             messagebox.showinfo('GHA info', text)
         except Exception as e:
             messagebox.showerror('GHA', str(e))
 
 
-if __name__ == '__main__':
+def main():
     App().mainloop()
+
+
+if __name__ == '__main__':
+    main()

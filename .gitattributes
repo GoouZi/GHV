@@ -1,0 +1,9 @@
+* text=auto
+
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# These files are reproducibly generated from the root VERSION.json.
+native/ghv_version.h linguist-generated=true
+ghv/_version_generated.py linguist-generated=true

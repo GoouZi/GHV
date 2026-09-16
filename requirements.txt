@@ -1,2 +1,3 @@
-numpy>=1.24
-opencv-python>=4.8
+# Compatibility entry point for existing setup scripts. Project dependencies
+# and console commands are authoritative in pyproject.toml.
+-e .

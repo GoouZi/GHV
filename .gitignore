@@ -15,6 +15,7 @@ Thumbs.db
 *.suo
 .venv/
 venv/
+*.egg-info/
 
 # Native/Python build products and caches
 build/

@@ -11,7 +11,7 @@ def main():
     if not src.exists() or not dec.exists():raise SystemExit('GHVC8 self-test requires sample.mp4 and built native tools')
     out=ROOT/'tests'/'_selftest_v08.ghv';repaired=ROOT/'tests'/'_selftest_v08_repaired.ghv'
     try:
-        p=subprocess.run([sys.executable,str(ROOT/'ghvenc.py'),str(src),str(out),'--preset','balanced','--native','on','--codec','8'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
+        p=subprocess.run([sys.executable,'-m','ghv.cli.encode',str(src),str(out),'--preset','balanced','--native','on','--codec','8'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
         if p.returncode:print(p.stdout);raise RuntimeError('GHVC8 encode failed')
         with open(out,'rb') as f:
             h=read_header(f);idx=read_index(f,h);assert h.major==0 and h.minor==8 and h.frame_count==len(idx)>1
@@ -22,7 +22,7 @@ def main():
         p=subprocess.run([str(dec),str(out),'--verify','--no-output'],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
         if p.returncode:raise RuntimeError('GHVC8 native decode/CRC failed: '+p.stderr)
         print('[PASS] GHVC8 native decode + CRC')
-        p=subprocess.run([sys.executable,str(ROOT/'ghvrepair.py'),str(out),str(repaired)],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
+        p=subprocess.run([sys.executable,'-m','ghv.cli.repair',str(out),str(repaired)],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace')
         if p.returncode:raise RuntimeError('GHVC8 repair failed: '+p.stdout)
         with open(repaired,'rb') as f:rh=read_header(f);ridx=read_index(f,rh);assert rh.minor==8 and len(ridx)==rh.frame_count
         print('[PASS] GHV 0.8 / GHVC8 self-test complete')

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghv-codec"
+dynamic = ["version"]
+description = "Experimental GHV/GHA media codec tools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Goou_Zi" }]
+dependencies = [
+  "numpy>=1.24",
+  "opencv-python>=4.8",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+ghvenc = "ghv.cli.encode:main"
+ghaenc = "ghv.cli.audio_encode:main"
+ghvplay = "ghv.cli.play:main"
+ghaplay = "ghv.cli.audio_play:main"
+ghvinfo = "ghv.cli.info:main"
+ghainfo = "ghv.cli.audio_info:main"
+ghvverify = "ghv.cli.verify:main"
+ghvrepair = "ghv.cli.repair:main"
+ghvdoctor = "ghv.cli.doctor:main"
+ghvbench = "ghv.cli.benchmark:main"
+ghvframes = "ghv.cli.frames:main"
+ghvversion = "ghv.cli.version:main"
+ghv-studio = "apps.ghv_studio.main:main"
+gha-studio = "apps.gha_studio.main:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ghv._version_generated.PACKAGE_VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ghv*", "apps*"]

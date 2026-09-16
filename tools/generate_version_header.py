@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate native/ghv_version.h from VERSION.json."""
+"""Generate native and Python packaging version metadata from VERSION.json."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "native" / "ghv_version.h"
+PYTHON_OUT = ROOT / "ghv" / "_version_generated.py"
+
+
+def pep440_version(project_version: str) -> str:
+    return (project_version.replace("-alpha.", "a")
+                           .replace("-beta.", "b")
+                           .replace("-rc.", "rc"))
 
 
 def main() -> None:
@@ -23,7 +30,13 @@ def main() -> None:
 #define GHV_LIB_VERSION_STRING "libghv {data['libghv_version']} / GHVC{decoders}"
 '''
     OUT.write_text(text, encoding="utf-8", newline="\n")
+    python_text = (
+        '"""Generated packaging metadata. Do not edit directly."""\n'
+        f'PACKAGE_VERSION = "{pep440_version(str(data["project_version"]))}"\n'
+    )
+    PYTHON_OUT.write_text(python_text, encoding="utf-8", newline="\n")
     print(f"generated {OUT.relative_to(ROOT)}")
+    print(f"generated {PYTHON_OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

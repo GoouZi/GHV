@@ -7,10 +7,11 @@ from ghv.codec3 import decode_frame as decode3
 from ghv.codec4 import decode_frame as decode4
 from ghv.codec5 import decode_frame as decode5
 from ghv.codec6 import decode_frame as decode6
+from ghv.paths import native_binary
 
 
 def native_decoder():
-    p = Path(__file__).resolve().parent / 'native' / 'bin' / ('ghvdecode.exe' if os.name == 'nt' else 'ghvdecode')
+    p = native_binary('ghvdecode')
     return str(p) if p.is_file() else None
 
 

@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse, os, re, shutil, struct, subprocess, time
 from pathlib import Path
 from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
+from ghv.paths import native_binary
 
 
 def native_decoder():
-    p = Path(__file__).resolve().parent / 'native' / 'bin' / ('ghvdecode.exe' if os.name == 'nt' else 'ghvdecode')
+    p = native_binary('ghvdecode')
     return str(p) if p.is_file() else None
 
 

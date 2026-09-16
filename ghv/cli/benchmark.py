@@ -3,9 +3,10 @@ from __future__ import annotations
 import argparse, json, os, platform, re, shutil, struct, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
+from ghv.paths import PROJECT_ROOT, native_binary
 from ghv.version import version_summary
 
-ROOT = Path(__file__).resolve().parent
+ROOT = PROJECT_ROOT
 RESULT_RE = re.compile(r'RESULT\s+frames=(\d+)\s+duration=([0-9.]+)\s+size_mib=([0-9.]+)\s+elapsed=([0-9.]+)\s+avg_fps=([0-9.]+)')
 PROFILE_VALUE_RE = re.compile(r'([a-z_]+)=([0-9.eE+-]+)')
 
@@ -79,7 +80,7 @@ def inspect_output(path: Path):
 
 
 def measure_decode(path: Path,frames: int,profile: bool = False):
-    dec=ROOT/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
+    dec=native_binary('ghvdecode')
     if not dec.is_file():return None
     h,_=inspect_output(path);n=h.frame_count if frames==0 else max(1,min(h.frame_count,frames))
     cmd=[str(dec),str(path),'--no-output','--verify','--frames',str(n)]
@@ -93,7 +94,7 @@ def measure_decode(path: Path,frames: int,profile: bool = False):
 
 
 def measure_quality(source: Path,path: Path):
-    ffmpeg=shutil.which('ffmpeg');dec=ROOT/'native'/'bin'/('ghvdecode.exe' if os.name=='nt' else 'ghvdecode')
+    ffmpeg=shutil.which('ffmpeg');dec=native_binary('ghvdecode')
     if not ffmpeg or not dec.is_file():return {}
     h,_=inspect_output(path);fps=f'{h.fps_num}/{h.fps_den}'
     flt=(f'[0:v]settb=AVTB,setpts=N*{h.fps_den}*1000000/{h.fps_num},split=2[d0][d1];'
@@ -143,7 +144,7 @@ def main():
         os.close(fd); os.unlink(name)
         out = Path(name); temp_created = True
 
-    cmd = [sys.executable, str(ROOT/'ghvenc.py'), str(src), str(out), '--preset', args.preset,
+    cmd = [sys.executable, '-m', 'ghv.cli.encode', str(src), str(out), '--preset', args.preset,
            '--audio-quality', args.audio_quality, '--codec', str(args.codec)]
     if args.threads > 0:
         cmd += ['--threads', str(args.threads)]
@@ -167,7 +168,7 @@ def main():
     if rc != 0:
         raise SystemExit(rc)
 
-    verify = subprocess.run([sys.executable, str(ROOT/'ghvverify.py'), str(out)], cwd=ROOT,
+    verify = subprocess.run([sys.executable, '-m', 'ghv.cli.verify', str(out)], cwd=ROOT,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
     verified = verify.returncode == 0
     result = None
@@ -198,7 +199,7 @@ def main():
         report['playback']=[]
         for run in range(1,args.playback_runs+1):
             stats=out.with_suffix(f'.playback-{run}.json')
-            pp=subprocess.run([sys.executable,str(ROOT/'ghvplay.py'),str(out),'--engine','native','--stats',str(stats)],cwd=ROOT)
+            pp=subprocess.run([sys.executable,'-m','ghv.cli.play',str(out),'--engine','native','--stats',str(stats)],cwd=ROOT)
             if pp.returncode:report['playback'].append({'run':run,'passed':False,'exit_code':pp.returncode});continue
             data=json.loads(stats.read_text(encoding='utf-8'));data.pop('samples',None);data['run']=run;data['passed']=not data.get('freeze_events') and not data.get('slowdown_events') and not data.get('speedup_events') and not data.get('pitch_change_events');report['playback'].append(data)
     if args.report_json:

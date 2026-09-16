@@ -9,6 +9,7 @@ from ghv.codec4 import decode_frame as decode_frame4
 from ghv.codec5 import decode_frame as decode_frame5
 from ghv.codec6 import decode_frame as decode_frame6
 from ghv.gha import decode_pcm16le as decode_ghac1
+from ghv.paths import native_binary
 from ghv.container import (read_header, read_index, FRAME_FMT, FRAME_SIZE,
                            AUDIO_FMT, AUDIO_SIZE, VFRM, AUD0, unpack_motion)
 
@@ -27,8 +28,7 @@ def find_tool(name, explicit=None):
 
 
 def find_native_decoder():
-    base = Path(__file__).resolve().parent / 'native' / 'bin'
-    p = base / ('ghvdecode.exe' if os.name == 'nt' else 'ghvdecode')
+    p = native_binary('ghvdecode')
     return str(p) if p.is_file() else None
 
 
