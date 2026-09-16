@@ -151,7 +151,7 @@ inline void reconstruct_motion_block(const Candidate& c,const std::vector<uint8_
 inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::vector<uint8_t>& prev,
                                    int w,int h,int quality,int range,std::vector<uint8_t>& recon,
                                    uint64_t* zero_blocks=nullptr,uint64_t* nonzero_mv=nullptr,
-                                   Profile* profile=nullptr){
+                                   Profile* profile=nullptr,int nonzero_finalists=2){
     if(profile)profile->p_frames++;
     QuantTables qt(quality);
     int nx=(w+15)/16,ny=(h+15)/16;std::vector<MV> mvs(size_t(nx)*ny);
@@ -163,6 +163,7 @@ inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::
     // saved bytes may not buy a visibly worse reconstructed macroblock.
     const uint64_t rate_lambda=1; // byte cost expressed in squared-error units
     uint64_t nz_count=0;int mbtotal=nx*ny;
+    nonzero_finalists=std::clamp(nonzero_finalists,0,7);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+:nz_count) if(mbtotal>64)
 #endif
@@ -178,8 +179,8 @@ inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::
         std::array<std::pair<int,MV>,32> scored{};
         for(size_t i=0;i<candidate_count;i++)scored[i]={sampled_sad(frame,prev,w,h,x0,y0,candidates[i].x,candidates[i].y),candidates[i]};
         std::sort(scored.begin(),scored.begin()+candidate_count,[](const auto& a,const auto& b){return a.first<b.first;});
-        std::array<MV,3> finalists{};size_t finalist_count=1;
-        for(size_t i=0;i<candidate_count;i++){const auto& sv=scored[i];if(sv.second.x==0&&sv.second.y==0)continue;finalists[finalist_count++]=sv.second;if(finalist_count==3)break;}
+        std::array<MV,8> finalists{};size_t finalist_count=1;
+        for(size_t i=0;i<candidate_count;i++){const auto& sv=scored[i];if(sv.second.x==0&&sv.second.y==0)continue;finalists[finalist_count++]=sv.second;if(finalist_count==size_t(nonzero_finalists+1))break;}
         auto motion_t1=ProfileClock::now();
         if(profile)profile->motion_search_ns.fetch_add(profile_ns(motion_t0,motion_t1),std::memory_order_relaxed);
         auto rd_t0=ProfileClock::now();
@@ -251,9 +252,10 @@ inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::
 }
 
 inline void decode(const std::vector<uint8_t>& in,const std::vector<uint8_t>* prev,int w,int h,
-                   int frame_type,size_t expected,std::vector<uint8_t>& recon,Profile* profile=nullptr){
+                   int frame_type,size_t expected,std::vector<uint8_t>& recon,Profile* profile=nullptr,
+                   const uint8_t* p_magic=PMAGIC){
     if(frame_type==0){ghvc7::decode(in,nullptr,w,h,0,expected,recon);return;}
-    if(!prev||in.size()<24||!std::equal(PMAGIC,PMAGIC+4,in.begin())||in[4]!=16||in[7]!=0)throw std::runtime_error("bad GHVC8 P payload");
+    if(!prev||in.size()<24||!std::equal(p_magic,p_magic+4,in.begin())||in[4]!=16||in[7]!=0)throw std::runtime_error("bad GHVC8 P payload");
     int quality=in[5];uint32_t raw=ghvc7::le32(in.data()+8),blocks=ghvc7::le32(in.data()+12),mvc=ghvc7::le32(in.data()+16),mvbytes=ghvc7::le32(in.data()+20);
     QuantTables qt(quality);
     int nx=(w+15)/16,ny=(h+15)/16;if(raw!=expected||blocks!=ghvc7::block_count(w,h)||mvc!=uint32_t(nx*ny)||quality<1||quality>100||24+size_t(mvbytes)>in.size())throw std::runtime_error("invalid GHVC8 header");

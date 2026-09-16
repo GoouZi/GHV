@@ -118,7 +118,7 @@ def main():
     ap.add_argument('input')
     ap.add_argument('output', nargs='?')
     ap.add_argument('--preset', choices=['veryfast','fast','compact','balanced','quality'], default='balanced')
-    ap.add_argument('--codec', type=int, choices=[6, 7, 8], default=8)
+    ap.add_argument('--codec', type=int, choices=[6, 7, 8, 9], default=9)
     ap.add_argument('--audio-quality', choices=['hq','compact'], default='hq')
     ap.add_argument('--threads', type=int, default=0)
     ap.add_argument('--decode-frames',type=int,default=180,help='decode benchmark frames; 0 = full file')

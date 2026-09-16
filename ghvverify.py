@@ -52,7 +52,7 @@ def main():
             f.seek(idx[0][0]); rh=f.read(FRAME_SIZE)
             if len(rh)==FRAME_SIZE: codec=struct.unpack(FRAME_FMT,rh)[4]
     nd=native_decoder()
-    if not a.python and codec in (4,5,6,7,8) and nd:
+    if not a.python and codec in (4,5,6,7,8,9) and nd:
         t0=time.perf_counter()
         p=subprocess.run([nd,a.input,'--verify'],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
         sec=max(1e-6,time.perf_counter()-t0)

@@ -10,6 +10,7 @@
 
 #include "ghvcodec7.h"
 #include "ghvcodec8.h"
+#include "ghvcodec9.h"
 
 namespace ghv {
 namespace {
@@ -70,8 +71,8 @@ struct Decoder::Impl {
         const uint32_t packed_bytes = le32(header + 24);
         if (number != expected_no || raw_bytes != frame_bytes)
             throw std::runtime_error("invalid frame number or reconstructed size");
-        if (codec != 7 && codec != 8)
-            throw std::runtime_error("GHV Player 0.1 supports GHVC7 and GHVC8 video");
+        if (codec != 7 && codec != 8 && codec != 9)
+            throw std::runtime_error("libghv supports GHVC7 through GHVC9 video");
         if (type > 2) throw std::runtime_error("invalid GHV frame type");
 
         std::vector<uint8_t> payload(packed_bytes);
@@ -87,7 +88,11 @@ struct Decoder::Impl {
             reconstructed = previous;
         } else {
             reconstructed = std::make_shared<std::vector<uint8_t>>();
-            if (codec == 8) {
+            if (codec == 9) {
+                ghvc9::decode(payload, type == 1 ? previous.get() : nullptr,
+                              int(metadata.width), int(metadata.height), type,
+                              frame_bytes, *reconstructed);
+            } else if (codec == 8) {
                 ghvc8::decode(payload, type == 1 ? previous.get() : nullptr,
                               int(metadata.width), int(metadata.height), type,
                               frame_bytes, *reconstructed);

@@ -161,7 +161,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
                                quality: int, keyint: int, scene_threshold: float,
                                motion_range: int, est_frames: int, fps_num: int,
                                fps_den: int, threads: int = 0, codec: int = 7,
-                               profile: bool = False) -> int:
+                               profile: bool = False, rd_finalists: int = 2) -> int:
     """Native core writes VFRM + INDX + header itself.
 
     Python never receives packed video frames, which removes one full copy and
@@ -174,6 +174,8 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
     cmd = [native_core, str(w), str(h), str(quality), str(keyint),
            str(scene_threshold), str(motion_range), str(out_path),
            str(est_frames), '--ghv', str(fps_num), str(fps_den), '--codec', str(codec)]
+    if codec == 9:
+        cmd += ['--rd-finalists', str(rd_finalists)]
     if profile:
         cmd.append('--profile')
     env = os.environ.copy()
@@ -219,7 +221,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
             pass
 
 def main():
-    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6, GHVC7, or GHVC8')
+    ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6 through GHVC9')
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
@@ -231,7 +233,7 @@ def main():
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
     ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
     ap.add_argument('--profile', action='store_true', help='print native per-stage timing')
-    ap.add_argument('--codec', type=int, choices=[6, 7, 8], default=8, help='video codec version (default: GHVC8)')
+    ap.add_argument('--codec', type=int, choices=[6, 7, 8, 9], default=9, help='video codec version (default: GHVC9)')
     ap.add_argument('--no-audio', action='store_true')
     ap.add_argument('--audio-rate', type=int, default=0, help='0 = preserve source sample rate')
     ap.add_argument('--ffmpeg')
@@ -246,8 +248,12 @@ def main():
     if args.codec == 7 and motion_range:
         print('[GHV] GHVC7 profile 0 has no motion-vector syntax yet; ignoring motion range.', flush=True)
         motion_range = 0
-    if args.codec == 8 and args.motion_range is None:
+    if args.codec >= 8 and args.motion_range is None:
         motion_range = 4
+    # GHVC9 presets change search effort, never decoder syntax or quantization
+    # behind the user's back. Balanced keeps zero plus the best sampled-SAD MV;
+    # Quality spends more RD work and Compact sits between them.
+    rd_finalists = {'veryfast': 0, 'fast': 1, 'balanced': 1, 'compact': 2, 'quality': 3}[args.preset]
 
     ffmpeg = find_tool('ffmpeg', args.ffmpeg)
     ffprobe = find_tool('ffprobe', args.ffprobe)
@@ -304,7 +310,7 @@ def main():
             frame_count = encode_video_native_direct(
                 video_cmd, native_core, out_path, w, h, quality, keyint,
                 scene_threshold, motion_range, est_frames, fps_num, fps_den,
-                max(0, args.threads), args.codec, args.profile)
+                max(0, args.threads), args.codec, args.profile, rd_finalists)
             with open(out_path, 'r+b') as f:
                 base_header = read_header(f)
                 # The native encoder has already written the complete video

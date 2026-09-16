@@ -442,7 +442,7 @@ def main():
                 tmp=tempfile.NamedTemporaryFile(prefix='ghv_',suffix='.wav',delete=False); wav_path=tmp.name; tmp.close(); load_audio_to_wav(f,h,wav_path)
             # Native playback does not need Python to pre-decode the seek path.
 
-        native_ok=(codec in (4,5,6,7,8) and find_native_decoder() and find_tool('ffplay',args.ffplay))
+        native_ok=(codec in (4,5,6,7,8,9) and find_native_decoder() and find_tool('ffplay',args.ffplay))
         if args.engine=='native' and not native_ok:
             raise SystemExit('Native playback requested but ghvdecode + FFmpeg + ffplay are not all available.')
         if args.engine in ('auto','native') and native_ok:
