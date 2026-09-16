@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-- No post-beta changes yet.
+### Repository
+
+- Organized specifications, architecture, API, integration, history, workflow,
+  and recovery documents under an indexed `docs/` hierarchy.
+- Consolidated useful Windows helpers under `scripts/windows/`, removed thin
+  duplicate wrappers, and updated native-build paths.
+- Separated canonical codec milestones from native-player evidence under
+  `benchmarks/`; removed summarized per-frame telemetry from the current tree.
+- Added documentation and benchmark indexes plus a policy for keeping generated
+  media, raw telemetry, private notes, and machine-local data out of Git.
 
 ## 0.9.0-beta.1 — 2026-09-16
 

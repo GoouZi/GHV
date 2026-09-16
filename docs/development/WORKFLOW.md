@@ -50,7 +50,7 @@ the project's historical development record or force-push shared branches.
 - Project beta releases use tags such as `v0.9.0-beta.1`.
 - Codec milestones use tags such as `ghv-0.9-m1`.
 - Never move a published recovery/stable tag.
-- `CHANGELOG.md`, `PROJECT_STATE.md`, README files, specifications, and
+- `CHANGELOG.md`, `docs/development/HANDOFF.md`, README files, specifications, and
   benchmark reports must agree with `VERSION.json` and verified results.
 
 ## Data and safety

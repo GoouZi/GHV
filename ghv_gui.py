@@ -246,7 +246,7 @@ class App(tk.Tk):
     def build_native(self):
         if os.name != 'nt':
             return messagebox.showinfo('GHV', 'On Linux/macOS, run native/build_linux.sh / build_macos.sh. This builds ghvcore + ghvdecode.')
-        subprocess.Popen(['cmd', '/c', os.path.join(ROOT, 'build_native_windows.bat')], cwd=ROOT)
+        subprocess.Popen(['cmd', '/c', os.path.join(ROOT, 'native', 'build_windows.bat')], cwd=ROOT)
 
 
 if __name__ == '__main__':

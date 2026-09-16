@@ -56,7 +56,7 @@ GHVC9 retains GHVC8's 16×16 local motion, median MV prediction, SKIP,
 8×8 transform, quantization model, CRC, 64-bit index, and seek model. It adds a
 predictor-ranked RD shortlist and independently decodable coefficient chunks
 with capped-unary runs and signed Rice coding. See
-[`SPEC_GHV_0.9.md`](SPEC_GHV_0.9.md).
+[`docs/specs/ghv/0.9.md`](docs/specs/ghv/0.9.md).
 
 ## Latest verified benchmark
 
@@ -78,16 +78,16 @@ speed. Test A is still about 4.66× the historical ~45.2 MB OGV reference, so
 compression remains unfinished and the project does not claim to outperform
 established codecs.
 
-[Full GHVC9 benchmark report](benchmarks/GHVC9_MILESTONE1_2026-09-16.md) ·
-[JSON reports](benchmarks/reports) ·
-[Project state](PROJECT_STATE.md)
+[Full GHVC9 benchmark report](benchmarks/milestones/ghvc9/GHVC9_MILESTONE1_2026-09-16.md) ·
+[JSON reports](benchmarks/milestones/ghvc9/reports) ·
+[Project state](docs/development/HANDOFF.md)
 
 ### Verified visual comparison
 
 The frame below is one of the fixed 10/25/50/75/90% Test A checks. The complete
-set is stored under `benchmarks/visual/ghvc9_m1_test_a`.
+set is stored under `benchmarks/milestones/ghvc9/visual/test_a`.
 
-![Test A source and GHVC9 decoded frame at 50 percent](benchmarks/visual/ghvc9_m1_test_a/compare_50_frame_1910.png)
+![Test A source and GHVC9 decoded frame at 50 percent](benchmarks/milestones/ghvc9/visual/test_a/compare_50_frame_1910.png)
 
 ## Architecture
 
@@ -113,7 +113,7 @@ slow video path.
 - `ghvenc.py` / `ghaenc.py` — source-media conversion to GHV/GHA.
 - `native/ghvcore.cpp` / `native/ghvdecode.cpp` — native GHVC encoder/decoder.
 - `libghv/` — C++ decoder foundation with metadata, indexed seek, YUV and PCM.
-- `GHV_Studio.bat` / `GHA_Studio.bat` — development desktop frontends.
+- `scripts/windows/studio_ghv.bat` / `studio_gha.bat` — development desktop frontends.
 - `GHV Player.exe` source — native Windows D3D11/WASAPI validation player.
 - `ghvverify.py` — index, full decode, and reconstructed-frame CRC verification.
 - `ghvrepair.py` — rebuild an index from intact frame records.
@@ -150,10 +150,10 @@ For the full native library, tests, and Windows Player:
 ```powershell
 cmake -S native -B native/build
 cmake --build native/build --config Release
-run_selftest.bat
+scripts\windows\test_all.bat
 ```
 
-Visual Studio Build Tools is the best-tested compiler path. `setup_windows.bat`
+Visual Studio Build Tools is the best-tested compiler path. `scripts\windows\setup.bat`
 provides an interactive setup helper.
 
 ### Linux and macOS
@@ -197,11 +197,11 @@ by Git; small compatibility fixtures and benchmark summaries remain tracked.
 
 ## Specifications
 
-- [GHV 0.9 / GHVC9](SPEC_GHV_0.9.md)
-- [GHV 0.8 / GHVC8](SPEC_GHV_0.8.md)
-- [GHV 0.7 / GHVC7](SPEC_GHV_0.7.md)
-- [GHA 0.2](SPEC_GHA_0.2.md)
-- [GHAC1 / GAUD historical specification](SPEC_GAUD_0.1.md)
+- [GHV 0.9 / GHVC9](docs/specs/ghv/0.9.md)
+- [GHV 0.8 / GHVC8](docs/specs/ghv/0.8.md)
+- [GHV 0.7 / GHVC7](docs/specs/ghv/0.7.md)
+- [GHA 0.2](docs/specs/gha/0.2.md)
+- [GHAC1 / GAUD historical specification](docs/specs/legacy/gaud-0.1.md)
 
 Older specifications remain in the repository so decoder compatibility and
 format evolution can be audited from the Git history.
@@ -223,12 +223,13 @@ cross-platform reference decoding, and a complete public specification.
 
 ## Project documentation
 
-- [Current project state](PROJECT_STATE.md)
-- [Development and Git workflow](DEVELOPMENT.md)
-- [Roadmap](ROADMAP.md)
+- [Documentation index](docs/README.md)
+- [Current project state](docs/development/HANDOFF.md)
+- [Development and Git workflow](docs/development/WORKFLOW.md)
+- [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
-- [GHVC8 recovery instructions](RESTORE_GHVC8_STABLE.md)
-- [libghv API notes](LIBGHV_API.md)
+- [GHVC8 recovery instructions](docs/development/recovery/GHVC8_STABLE.md)
+- [libghv API notes](docs/api/libghv.md)
 
 ## License
 

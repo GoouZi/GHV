@@ -160,7 +160,7 @@ Balanced q78, GHAC1 HQ audio, native CRC verification:
 
 Do not present these values as universal hardware performance.
 
-See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` and the adjacent JSON report.
+See [`../../benchmarks/milestones/ghvc7/GHVC7_BENCHMARK_2026-09-14.md`](../../benchmarks/milestones/ghvc7/GHVC7_BENCHMARK_2026-09-14.md) and the adjacent JSON report.
 
 ## Fixed GHVC8 benchmark (2026-09-15)
 
@@ -173,7 +173,7 @@ See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` and the adjacent JSON report.
   47.138372 dB / 0.987057. Controlled playback failed: 1337 drops and 18
   freeze windows, while fixed-rate audio had no slowdown/pitch/speed-up event.
 
-See `benchmarks/GHVC8_BENCHMARK_2026-09-15.md` and the A/B/C JSON reports.
+See [`../../benchmarks/milestones/ghvc8/GHVC8_BENCHMARK_2026-09-15.md`](../../benchmarks/milestones/ghvc8/GHVC8_BENCHMARK_2026-09-15.md) and the A/B/C JSON reports.
 
 ## GHVC8 native performance milestone (2026-09-15)
 
@@ -189,7 +189,7 @@ The encoder profiler identifies RD candidate evaluation as the dominant CPU
 hotspot. The decoder is now dominated by GHVC8 P-frame coefficient
 materialization/parse and reconstruction; verified CRC is still 13.7% of Test
 C wall time even after slicing-by-8 acceleration. See
-`benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
+[`../../benchmarks/milestones/ghvc8/GHVC8_PERFORMANCE_2026-09-15.md`](../../benchmarks/milestones/ghvc8/GHVC8_PERFORMANCE_2026-09-15.md).
 
 ## GHVC8 performance iteration 2 (2026-09-15)
 
@@ -208,15 +208,15 @@ decode without changing pixels.
 RD evaluation remains the largest encode hotspot; coefficient decode is the
 largest decode hotspot. Narrow SSE2 and cheap-SAD ordering experiments were
 measured and rejected. See
-`benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
-`GODOT_INTEGRATION_NOTES.md`.
+[`../../benchmarks/milestones/ghvc8/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md`](../../benchmarks/milestones/ghvc8/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md) and
+[`../integrations/godot.md`](../integrations/godot.md).
 
 ## Frozen stable release and native Player (2026-09-15)
 
 The byte-identical performance milestone is permanently anchored at commit
 `8f8ec96e00468c9029c573e182520778be9d2f39` by annotated tag
 `ghv-0.8-stable-perf2`, branch `backup/ghvc8-stable-perf2`, a verified complete
-Git bundle, and a build-tested source ZIP. See `RESTORE_GHVC8_STABLE.md`.
+Git bundle, and a build-tested source ZIP. See [`recovery/GHVC8_STABLE.md`](recovery/GHVC8_STABLE.md).
 
 GHV Player 0.1 is a separate native Windows application:
 
@@ -231,7 +231,7 @@ GHV Player 0.1 is a separate native Windows application:
 Test B completed 3/3 formal runs with all 3121 frames displayed and no drops,
 underruns, freezes, or audio-speed events. Test C completed 2/2 formal runs
 with eight late video drops per run and no underrun, freeze, pitch, slowdown,
-or speedup event. See `benchmarks/GHV_PLAYER_0.1_WINDOWS_2026-09-15.md`.
+or speedup event. See [`../../benchmarks/player/GHV_PLAYER_0.1_WINDOWS_2026-09-15.md`](../../benchmarks/player/GHV_PLAYER_0.1_WINDOWS_2026-09-15.md).
 
 The new library is a decoder/player foundation, not yet a stable C ABI. Direct
 YUV/PCM encoding and the generated-without-MP4 demo remain Phase 2 work.
@@ -259,7 +259,7 @@ PackBits saved only about 1.26% and slowed decode; DC prediction saved about 4%
 but slowed encode about 14% and decode about 28%; Rice `k=1` was 3.8% larger;
 an unchunked bitstream saved rate but serialized coefficient decode. The chunked
 design and capped-unary runs were retained. See
-`benchmarks/GHVC9_MILESTONE1_2026-09-16.md`.
+[`../../benchmarks/milestones/ghvc9/GHVC9_MILESTONE1_2026-09-16.md`](../../benchmarks/milestones/ghvc9/GHVC9_MILESTONE1_2026-09-16.md).
 
 This report is the latest authoritative verified benchmark. The current
 development focus is GHVC9 compression/RD efficiency, inverse reconstruction

@@ -13,6 +13,6 @@ GVID 0.3 keeps the GVID 0.2 container and GVC2 video bitstream. The main change 
 - 2: legacy GAD2
 - 3: GAUD 0.1 / GAC1 (default)
 
-For codec id 3, the `AUD0` payload begins with the 64-byte `GAUD` header described in `SPEC_GAUD_0.1.md`. GVID repeats sample rate, channel count and sample count in its own header for fast inspection; a decoder should reject contradictory essential metadata.
+For codec id 3, the `AUD0` payload begins with the 64-byte `GAUD` header described in [`gaud-0.1.md`](gaud-0.1.md). GVID repeats sample rate, channel count and sample count in its own header for fast inspection; a decoder should reject contradictory essential metadata.
 
 GVC1/GVC2 and GAD1/GAD2 decoding compatibility is retained by the reference player.

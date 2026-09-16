@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 python tests\test_version_sync.py
 if errorlevel 1 exit /b 1
 python tests\selftest_v04.py
@@ -15,4 +15,3 @@ if errorlevel 1 exit /b 1
 python tests\selftest_v09.py
 if errorlevel 1 exit /b 1
 echo [PASS] All GHV compatibility self-tests completed.
-pause

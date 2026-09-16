@@ -50,10 +50,10 @@ native CRC、完整 PSNR/SSIM。机器为 Windows 11、Intel64 Family 6 Model 18
 速度同时提高。但 Test A 仍约为历史 OGV 45.2 MB reference 的 4.66 倍，因此压缩
 效率仍未完成，项目也不宣称已经超过成熟 codec。
 
-[完整报告](benchmarks/GHVC9_MILESTONE1_2026-09-16.md) ·
-[JSON 数据](benchmarks/reports) · [项目状态](PROJECT_STATE.md)
+[完整报告](benchmarks/milestones/ghvc9/GHVC9_MILESTONE1_2026-09-16.md) ·
+[JSON 数据](benchmarks/milestones/ghvc9/reports) · [项目状态](docs/development/HANDOFF.md)
 
-![Test A 50% source 与 GHVC9 decoded 对比](benchmarks/visual/ghvc9_m1_test_a/compare_50_frame_1910.png)
+![Test A 50% source 与 GHVC9 decoded 对比](benchmarks/milestones/ghvc9/visual/test_a/compare_50_frame_1910.png)
 
 ## Build
 
@@ -65,7 +65,7 @@ python -m pip install -r requirements.txt
 native\build_windows.bat
 cmake -S native -B native/build
 cmake --build native/build --config Release
-run_selftest.bat
+scripts\windows\test_all.bat
 ```
 
 Windows + Visual Studio Build Tools 是当前完整验证路径。Linux/macOS 有
@@ -89,12 +89,13 @@ python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --
 
 ## 规范与开发
 
-- [GHV 0.9 / GHVC9](SPEC_GHV_0.9.md)
-- [GHV 0.8 / GHVC8](SPEC_GHV_0.8.md)
-- [GHA 0.2](SPEC_GHA_0.2.md)
-- [Roadmap](ROADMAP.md)
+- [GHV 0.9 / GHVC9](docs/specs/ghv/0.9.md)
+- [GHV 0.8 / GHVC8](docs/specs/ghv/0.8.md)
+- [GHA 0.2](docs/specs/gha/0.2.md)
+- [文档索引](docs/README.md)
+- [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
-- [开发与 Git 工作流](DEVELOPMENT.md)
+- [开发与 Git 工作流](docs/development/WORKFLOW.md)
 
 `main` 表示最新已验证公开 Beta，不代表 1.0。开发 milestone 在 generation branch
 完成 build/test 后独立 commit 并 push；project release 使用 `v0.x.x-beta.x` tag，

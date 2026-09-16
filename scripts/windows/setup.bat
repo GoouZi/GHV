@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 echo [GHV 0.9 Beta] Installing Python runtime dependencies...
 python -m pip install -r requirements.txt
 if errorlevel 1 (
@@ -32,12 +32,12 @@ where clang++ >nul 2>nul
 if %errorlevel%==0 goto :build
 echo [GHV] No C++ compiler detected. Some legacy Python compatibility paths remain available.
 echo       For GHVC9 encoding/decoding, install Visual Studio Build Tools,
-echo       MinGW-w64, or LLVM, then run build_native_windows.bat.
+echo       MinGW-w64, or LLVM, then run native\build_windows.bat.
 goto :done
 :build
 echo [GHV] C++ compiler detected; building native GHVC6-GHVC9 encoder + decoder...
 call native\build_windows.bat
 :done
 echo.
-echo [GHV] Setup complete. Double-click GHV_Studio.bat or GHA_Studio.bat.
+echo [GHV] Setup complete. Run scripts\windows\studio_ghv.bat or studio_gha.bat.
 pause

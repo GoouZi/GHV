@@ -51,6 +51,15 @@ test_videos/
 测试视频/
 benchmarks/output/
 benchmarks/visuals/
+benchmarks/raw/
+benchmarks/telemetry/
+benchmarks/**/raw-*.json
+benchmarks/**/*telemetry*.json
+*.trace.json
+
+# Private notes and machine-local working state
+.local/
+local_notes/
 
 # Local packages and recovery archives
 releases/*.zip

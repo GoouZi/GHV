@@ -287,7 +287,7 @@ def main():
 
     native_core = find_native_core() if args.native != 'off' else None
     if args.native == 'on' and not native_core:
-        raise SystemExit(f'Native GHVC{args.codec} core requested but not built. Run build_native_windows.bat.')
+        raise SystemExit(f'Native GHVC{args.codec} core requested but not built. Run native\\build_windows.bat.')
     use_native = bool(native_core)
     if args.codec >= 7 and not use_native:
         raise SystemExit(f'GHVC{args.codec} requires the native C++ core. Build native/ghvcore first.')

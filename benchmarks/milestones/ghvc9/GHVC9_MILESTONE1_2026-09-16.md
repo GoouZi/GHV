@@ -40,7 +40,7 @@ Test A fixed 10/25/50/75/90% source-versus-decoded comparisons were inspected.
 Text and anime line edges remained clean; no new obvious blocking, ringing,
 banding, ghosting, or motion smear was visible. Quantization tables are
 unchanged. The tiny objective movement comes from the smaller motion shortlist,
-not stronger quantization. Images are in `benchmarks/visual/ghvc9_m1_test_a`.
+not stronger quantization. Images are in [`visual/test_a`](visual/test_a/).
 
 ## Design and profile
 
