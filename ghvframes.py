@@ -36,7 +36,7 @@ def main():
             if src.shape[:2]!=dst.shape[:2]:src=cv2.resize(src,(h.width,h.height),interpolation=cv2.INTER_AREA)
             canvas=np.hstack((src,dst));bar=max(36,h.height//24);canvas=cv2.copyMakeBorder(canvas,bar,0,0,0,cv2.BORDER_CONSTANT,value=(20,20,20))
             scale=max(.6,h.width/1600);cv2.putText(canvas,f'SOURCE  {int(pct*100)}%  frame {n}',(12,bar-10),cv2.FONT_HERSHEY_SIMPLEX,scale,(240,240,240),2,cv2.LINE_AA)
-            cv2.putText(canvas,'GHVC8 DECODED',(h.width+12,bar-10),cv2.FONT_HERSHEY_SIMPLEX,scale,(240,240,240),2,cv2.LINE_AA)
+            cv2.putText(canvas,f'GHVC{h.minor} DECODED',(h.width+12,bar-10),cv2.FONT_HERSHEY_SIMPLEX,scale,(240,240,240),2,cv2.LINE_AA)
             path=out/f'compare_{int(pct*100):02d}_frame_{n}.png';cv2.imwrite(str(path),canvas)
     print(f'[GHV] Wrote {len(targets)} fixed visual comparisons to {out}')
 

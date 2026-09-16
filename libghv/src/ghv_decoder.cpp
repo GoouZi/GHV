@@ -130,7 +130,7 @@ bool Decoder::open(const std::string& utf8_path, Error* error) {
             return false;
         }
         const uint16_t header_size = le16(h + 6);
-        if (header_size != 96 || h[4] != 0 || h[5] > 8) {
+        if (header_size != 96 || h[4] != 0 || h[5] > 9) {
             set_error(error, ErrorCode::unsupported_version, "This GHV container version is not supported.");
             close();
             return false;
@@ -332,6 +332,6 @@ bool Decoder::decode_audio(AudioBuffer& audio, Error* error) {
 }
 
 bool Decoder::eof() const { return impl_->next_frame >= impl_->metadata.frame_count; }
-const char* version_string() { return "libghv 0.1 / GHVC7-8"; }
+const char* version_string() { return "libghv 0.2 / GHVC7-9"; }
 
 } // namespace ghv
