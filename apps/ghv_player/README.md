@@ -1,8 +1,8 @@
 # GHV Player 0.1 for Windows
 
 `GHV Player.exe` is the native end-user player. It does not require Python,
-FFmpeg, ffplay, or OpenCV. The current release plays GHVC7/GHVC8 video with
-embedded GHAC1 audio.
+FFmpeg, ffplay, or OpenCV. The current development build plays
+GHVC7/GHVC8/GHVC9 video with embedded GHAC1 audio.
 
 Open the application and choose a `.ghv` file with Ctrl+O, pass a file on the
 command line, or drag a `.ghv` file onto the window.

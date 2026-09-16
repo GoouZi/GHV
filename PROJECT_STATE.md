@@ -1,6 +1,6 @@
 # GHV / GHA Project State
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
 
 This is the handoff file for a future ChatGPT/Codex session or human contributor.
 
@@ -8,8 +8,8 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
-- Current development release: **GHV 0.8 / GHA 0.2**
-- Current native video codec: **GHVC8** (GHVC4/5/6/7 remain decodable; GHVC6/7 remain encodable)
+- Current development release: **GHV 0.9 / GHA 0.2**
+- Current native video codec: **GHVC9** (GHVC4 through GHVC8 remain decodable)
 - Current audio codec: **GHAC1**
 - License: MIT
 - Legacy project names GVID / GAUD are retired.
@@ -26,6 +26,7 @@ Test A reference MV, 960x544/30:
 - GHV 0.6: **675.025 MiB** in the 2026-09-14 fixed-video rerun
 - GHV 0.7 / GHVC7: **443.249 MiB**
 - GHV 0.8 / GHVC8: **288.986 MiB**
+- GHV 0.9 / GHVC9 Milestone 1: **210.616 MiB**
 
 User feedback on 0.5:
 
@@ -42,6 +43,27 @@ its values with Test A. The 2026-09-14 outputs were 1350.329 MiB (GHVC6) and
 
 Test C is the fixed 3840x2160/24, 181.348 s VP9 stress source. It must not be
 substituted for Test A or B or used for every parameter experiment.
+
+## GHV 0.9 architecture
+
+GHVC9 retains GHVC8's reconstruction, quantization, 16x16 motion vectors,
+median MV prediction, SKIP semantics, I-frame `GTC7`, frame CRC, and container
+index. It changes P payloads to `GBP9`:
+
+- encoder-only sampled-SAD ranking admits zero motion plus the best nonzero
+  finalist in Balanced, reducing expensive full-RD entries by 33.33%;
+- exact full RD and branch-and-bound still make the final decision;
+- the zero descriptor map is followed by 256-block independent coefficient
+  chunks;
+- capped-unary zero runs and Rice `k=2` signed levels replace GHVC8 compact
+  byte tokens;
+- chunks are bounded, independently validated, and parsed in parallel;
+- zero and DC-only inverse paths remain pixel exact.
+
+No 32x32 partition or merge syntax was shipped in Milestone 1. Those changes
+were deliberately kept out until their rate/complexity tradeoff can be tested
+independently. Encoder presets alter search effort only; all emit one standard
+GHVC9 bitstream.
 
 ## GHV 0.8 architecture
 
@@ -208,22 +230,47 @@ or speedup event. See `benchmarks/GHV_PLAYER_0.1_WINDOWS_2026-09-15.md`.
 The new library is a decoder/player foundation, not yet a stable C ABI. Direct
 YUV/PCM encoding and the generated-without-MP4 demo remain Phase 2 work.
 
+## GHVC9 Milestone 1 (2026-09-16)
+
+Balanced, unchanged q78 quantization, native CRC verification:
+
+- Test A: **210.616 MiB**, 169.317 encode / 913.114 decode fps,
+  45.355968 dB / 0.984213; fixed 10/25/50/75/90% visual PASS.
+- Test B: **405.317 MiB**, 52.810 encode / 279.601 decode fps,
+  46.627935 dB / 0.990219; full playback PASS with zero drops/freezes/audio events.
+- Test C: **3062.501 MiB**, 11.196 encode / 59.362 decode fps
+  (**2.473x realtime**), 47.084085 dB / 0.986903; full playback PASS with
+  zero drops/freezes/audio events.
+
+Relative to frozen GHVC8, output fell 27.12% / 26.82% / 24.97%, encode improved
+9.08% / 8.23% / 7.00%, and verified decode improved 36.11% / 32.23% / 29.06%.
+Full RD candidates fell from 21,377,160 to 14,251,440 on Test A. The dominant
+encode hotspot remains exact RD evaluation. The dominant codec decode stage is
+now inverse transform/prediction/reconstruction rather than coefficient parse.
+
+Measured and rejected experiments are recorded, not hidden: whole-payload
+PackBits saved only about 1.26% and slowed decode; DC prediction saved about 4%
+but slowed encode about 14% and decode about 28%; Rice `k=1` was 3.8% larger;
+an unchunked bitstream saved rate but serialized coefficient decode. The chunked
+design and capped-unary runs were retained. See
+`benchmarks/GHVC9_MILESTONE1_2026-09-16.md`.
+
 ## Reproduce
 
 ```text
-python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
 python ghvdoctor.py output.ghv --frames 999999 --verify
 python ghvplay.py output.ghv --engine native
 ```
 
 ## Next major milestone
 
-GHVC8 achieved the `<300 MiB` Test A stage, but remains far from OGV/Theora.
+GHVC9 achieved the `<220 MiB` Test A milestone, but remains far from OGV/Theora.
 Highest-value next work:
 
-1. reduce remaining full RD work with a bitstream-preserving coarse lower bound or batched transforms;
-2. replace the remaining escape levels with measured adaptive Rice/canonical Huffman coding;
-3. compact/reuse decoder coefficient scratch and continue SIMD evaluation;
-4. add CRF-like rate control and formal Fast/Balanced/Quality/Compact curves;
-5. add the versioned opaque C API, incremental audio, and direct encoder API;
-6. capture peak memory, CPU utilization, and rendered dropped-frame/A/V drift metrics.
+1. test 32x32/16x16 adaptive partitions and merge-like MV reuse in isolation;
+2. reduce remaining full RD work with coarse lower bounds or batched finalist transforms;
+3. optimize inverse transform/prediction/reconstruction without losing bit exactness;
+4. revisit DC/context entropy only with a much cheaper predictor representation;
+5. add malformed-stream fuzz coverage and cross-platform GHVC9 verification;
+6. keep player/plugin/ecosystem expansion paused until the codec structure stabilizes.

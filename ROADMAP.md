@@ -1,6 +1,22 @@
 # GHV / GHA Roadmap
 
-## Current — GHV 0.8
+## Current — GHV 0.9 / GHVC9 Milestone 1
+
+- Predictor-ranked motion shortlist; Balanced sends zero plus one nonzero
+  finalist to exact RD instead of three nonzero candidates.
+- `GBP9` P frames with independently decodable 256-block coefficient chunks,
+  capped-unary zero runs, and signed Rice `k=2` levels.
+- Test A: 210.616 MiB, 169.317 encode / 913.114 decode fps,
+  45.356 dB / 0.984213, fixed-position visual PASS.
+- Test B: 405.317 MiB, 52.810 encode / 279.601 decode fps, full playback PASS.
+- Test C: 3062.501 MiB, 11.196 encode / 59.362 decode fps (2.473x realtime),
+  full playback PASS.
+- GHVC4-8 decode compatibility, 64-bit index, CRC, seek, EOF, and safe corrupt
+  chunk rejection retained.
+- Codec work is the active priority; Godot, MovieWriter, UI, VLC/PotPlayer, and
+  other ecosystem work is intentionally paused.
+
+## Frozen — GHV 0.8
 
 - GHVC8/GTP8 16x16 local motion with RD selection.
 - Median MV prediction and delta-coded vectors.
@@ -39,7 +55,7 @@
 - Buffered native playback and playback diagnostics.
 - Experimental local block motion.
 
-## Next — libghv API completion before GHVC9
+## Deferred — ecosystem and libghv expansion
 
 - versioned opaque C decoder handles and ABI/ownership contract;
 - incremental GHAC decode and reusable frame/audio pools;
@@ -48,24 +64,30 @@
 - manual packaged-player UI stress for drag/drop, seek, resize, and fullscreen;
 - platform backends after Windows; do not claim untested macOS/mobile support.
 
-## Later GHVC9 — Adaptive compression
+These are deliberately paused until compression and bitstream structure mature:
 
-Primary objective: push Test A below 250 MiB without losing comfortable realtime decode.
+- Godot GDExtension / MovieWriter;
+- player UI rewrite and additional platform backends;
+- VLC, PotPlayer, mobile, and other ecosystem integrations;
+- stable public C encoder ABI.
+
+## Next — GHVC9 Milestone 2
+
+Primary objective: push Test A below 180 MiB without losing current visual
+quality, faster-than-GHVC8 encoding, or 2x-realtime 4K24 decode.
 
 Implemented foundations and continuing research:
 
-- coded-cost 8/16/32-block local motion and MV prediction;
-- Rice/canonical Huffman/range-style coefficient coding selected by measurements;
-- predictor-first/early-accept RD search and compact decoder coefficient scratch;
+- adaptive 32x32/16x16 motion partition and merge-like MV reuse;
+- cheaper predictor-first/early-accept bounds before exact RD;
+- measured DC/context coefficient coding with strict rate-vs-CPU acceptance;
+- batched transform/SAD SIMD only when microbenchmarks and real files both win;
 - CRF-like quality/rate control and complete preset curves;
-- benchmark against both fixed real videos every build;
-- complete public `libghv` API and direct encoder;
-- adaptive 32x32/16x16 partitions and pre-RD candidate shortlist;
-- measured coefficient/DC entropy improvements;
-- formal Fast/Balanced/Quality encoder search presets;
-- Godot extension prototype after the ABI/ownership contract stabilizes.
+- benchmark A first, then B, then C only for accepted milestones;
+- expand malformed bitstream and fuzz-like tests.
 
-Target: preserve at least the current ~46 dB real-video PSNR class while producing another architecture-level rate reduction.
+Target: preserve the current ~45-47 dB / >=0.98 SSIM class while producing
+another architecture-level rate reduction.
 
 ## GHV 0.9 — Container/Modern Features
 

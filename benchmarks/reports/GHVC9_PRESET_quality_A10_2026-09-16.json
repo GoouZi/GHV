@@ -1,0 +1,42 @@
+{
+  "input": "C:\\Users\\Goou_Zi\\Desktop\\GHV\\GHV_source_repo\\benchmarks\\output\\test_a_30s_10s.mp4",
+  "output": "C:\\Users\\Goou_Zi\\Desktop\\GHV\\GHV_source_repo\\benchmarks\\output\\ghvc9_quality_a10.ghv",
+  "preset": "quality",
+  "codec": 9,
+  "actual_codec": 9,
+  "source": {
+    "size_bytes": 2752422,
+    "width": 960,
+    "height": 544,
+    "fps": "30/1",
+    "duration_seconds": 10.066992,
+    "video_bitrate_bps": 1533164,
+    "container_bitrate_bps": 2187284,
+    "audio_sample_rate": 0,
+    "audio_channels": 0,
+    "audio_bitrate_bps": 0
+  },
+  "input_bytes": 2752422,
+  "output_bytes": 31952641,
+  "size_ratio_output_over_input": 11.608917891224529,
+  "size_change_percent": 1060.8917891224528,
+  "wall_seconds": 3.1053988999919966,
+  "verified": true,
+  "encode_peak_memory_bytes": 159232000,
+  "output_bitrate_bps": 25392828.966412514,
+  "system": {
+    "cpu_model": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "gpu_models": [
+      "OrayIddDriver Device",
+      "NVIDIA GeForce RTX 4060 Ti"
+    ]
+  },
+  "frames": 302,
+  "duration_seconds": 10.067,
+  "encoder_elapsed_seconds": 2.856,
+  "avg_fps": 105.745,
+  "decode_fps": 840.485,
+  "decode_peak_memory_bytes": 12431360
+}

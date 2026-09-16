@@ -1,9 +1,9 @@
-# GHV 0.8 + GHA 0.2
+# GHV 0.9 development + GHA 0.2
 
 **GHV — Goou_Zi High-efficiency Video** (`.ghv`)  
 **GHA — Goou_Zi High-efficiency Audio** (`.gha`)
 
-GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. GHV 0.8 uses our own transform/motion **GHVC8** video codec; embedded/standalone audio uses **GHAC1**. GHVC6/7 remain available and older files remain decodable.
+GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. Current development uses our own **GHVC9** transform/motion codec; embedded/standalone audio uses **GHAC1**. GHVC4 through GHVC8 remain decodable, and the frozen GHVC8 release is retained at `ghv-0.8-stable-perf2`.
 
 > Development format: bitstream compatibility can still change before 1.0.
 
@@ -33,7 +33,7 @@ Pixel-domain residual packing had reached diminishing returns. GHV 0.7 introduce
 - Source-sampled Repeat detection, scene-change I frames, and bounded keyframe intervals.
 - `ghvbench.py` can emit human and JSON reports with encode/decode FPS, CRC, PSNR, and SSIM.
 - Player supports GHVC7 and monitors decoder/mux/presenter health. Fatal video failure now stops the complete A/V chain.
-- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support the versioned native codecs through GHVC8.
+- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support the versioned native codecs through GHVC9.
 
 The first GHVC7 profile intentionally does not write motion vectors yet. Motion must be selected by actual coded cost in a future profile; the experimental GHVC6 `GPM6` code remains in-tree.
 
@@ -92,6 +92,21 @@ Output size, SHA-256, PSNR, SSIM, and visual quality are unchanged. See
 `benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
 `GODOT_INTEGRATION_NOTES.md`.
 
+GHVC9 Milestone 1 changes the P-frame bitstream while preserving the GHVC8
+quantization and reconstruction model. A predictor-ranked shortlist cuts full
+RD candidate entries by one third, and independently decodable 256-block Rice
+coefficient chunks reduce rate while retaining parallel decode:
+
+| Test | GHVC8 -> GHVC9 size | Encode GHVC8 -> GHVC9 | Decode GHVC8 -> GHVC9 | Quality |
+|---|---:|---:|---:|---:|
+| A 960x544 | 288.986 -> **210.616 MiB** | 155.223 -> **169.317 fps** | 670.845 -> **913.114 fps** | 45.356 dB / 0.984213 |
+| B 1920x1080 | 553.891 -> **405.317 MiB** | 48.795 -> **52.810 fps** | 211.439 -> **279.601 fps** | 46.628 dB / 0.990219 |
+| C 3840x2160 | 4081.516 -> **3062.501 MiB** | 10.464 -> **11.196 fps** | 45.997 -> **59.362 fps** | 47.084 dB / 0.986903 |
+
+Test C is now 2.47x realtime at 4K24. Full B and C playback validation had
+zero dropped frames, freezes, or audio-rate events. See
+`benchmarks/GHVC9_MILESTONE1_2026-09-16.md`.
+
 GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about half as fast as GHVC6, while optimized decode is equal or faster. Both Test B outputs completed full 104.118 s native A/V playback without a freeze on this machine. See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` for method and limitations.
 
 ## Windows quick start
@@ -116,15 +131,15 @@ use Python and FFmpeg for input-media decoding.
 ## Useful commands
 
 ```powershell
-python ghvenc.py input.mp4 output.ghv --codec 8 --preset balanced
+python ghvenc.py input.mp4 output.ghv --codec 9 --preset balanced
 python ghvplay.py output.ghv              # Auto buffer
 python ghvverify.py output.ghv
 python ghvdoctor.py output.ghv
 python ghvinfo.py output.ghv
 python ghvrepair.py output.ghv
 python ghvbench.py input.mp4 output.ghv --preset balanced
-python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
-python ghvbench.py input.mp4 output.ghv --codec 8 --preset balanced --profile --json
+python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
+python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --json
 ```
 
 For a large 1080p file, Auto is now the default. You can still force a larger cushion:
@@ -173,13 +188,15 @@ MP4 / MKV / MOV / OGV / ...
        YUV420p
           |
           v
-        GHVC8
+        GHVC9
    I / P / Repeat prediction
    8x8 integer transform
    frequency-aware quantization
    zig-zag + trailing-zero removal
-   zero-run + signed varint levels
+   capped-unary runs + signed Rice levels
+   predictor-ranked RD shortlist
    packed skip/predictor descriptors
+   chunked Rice coefficient coding
           |
           +------ GHAC1 audio
           |
@@ -195,19 +212,18 @@ Developer/diagnostic playback remains available through `ghvplay.py`.
 
 FFmpeg is still used to decode source media during conversion and by some
 developer tools. GHV Player itself does not use FFmpeg. FFmpeg does **not**
-encode or decode GHVC6/7/8 itself.
+encode or decode GHVC6/7/8/9 itself.
 
 ## Current target
 
-The first hard target remains **OGV/Theora**, not AV1. GHVC8 has reached the `<300 MiB` Test A stage at nearly unchanged objective quality but is still far from the 45.2 MB historical OGV result.
+The first hard target remains **OGV/Theora**, not AV1. GHVC9 Milestone 1 has reached **210.616 MiB** on Test A with a fixed-position visual PASS, but is still about 4.66x the 45.2 MB historical OGV result.
 
 Next major codec work:
 
-- coded-cost local motion and MV prediction;
-- measured Rice/Huffman/range-style coefficient entropy coding;
-- encoder allocation and I-frame pipeline optimization;
+- adaptive 32x32/16x16 motion partitions and merge-like motion reuse;
+- measured DC prediction and magnitude/context entropy experiments;
+- encoder RD batching and I-frame pipeline optimization;
 - CRF-like rate control and preset curves;
-- native decoder library/API instead of process-only integration;
-- direct engine integrations.
+- malformed-stream/fuzz coverage and broader cross-platform verification.
 
-See `SPEC_GHV_0.7.md`, `PROJECT_STATE.md`, `ROADMAP.md`, and `CHANGELOG.md`.
+See `SPEC_GHV_0.9.md`, `PROJECT_STATE.md`, `ROADMAP.md`, and `CHANGELOG.md`.
