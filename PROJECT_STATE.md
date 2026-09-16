@@ -6,11 +6,17 @@ This is the handoff file for a future ChatGPT/Codex session or human contributor
 
 ## Identity
 
+- Repository: **https://github.com/GoouZi/GHV**
+- Current branch: **`codex/ghvc9`** (published beta is promoted to `main` after validation)
+- Current project beta version: **0.9.0-beta.1**
 - GHV = Goou_Zi High-efficiency Video, `.ghv`
 - GHA = Goou_Zi High-efficiency Audio, `.gha`
 - Current development release: **GHV 0.9 / GHA 0.2**
 - Current native video codec: **GHVC9** (GHVC4 through GHVC8 remain decodable)
 - Current audio codec: **GHAC1**
+- GHV Studio: **0.9.0-beta.1**
+- GHA Studio: **0.2.0-beta.1**
+- Authoritative version source: **`VERSION.json`**
 - License: MIT
 - Legacy project names GVID / GAUD are retired.
 
@@ -254,6 +260,12 @@ but slowed encode about 14% and decode about 28%; Rice `k=1` was 3.8% larger;
 an unchunked bitstream saved rate but serialized coefficient decode. The chunked
 design and capped-unary runs were retained. See
 `benchmarks/GHVC9_MILESTONE1_2026-09-16.md`.
+
+This report is the latest authoritative verified benchmark. The current
+development focus is GHVC9 compression/RD efficiency, inverse reconstruction
+throughput, and malformed-stream robustness. New Player UI, Godot/MovieWriter,
+VLC/PotPlayer, and other ecosystem integrations are intentionally paused until
+the codec structure is more mature.
 
 ## Reproduce
 

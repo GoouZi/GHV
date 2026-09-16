@@ -1,229 +1,236 @@
-# GHV 0.9 development + GHA 0.2
+# GHV
 
-**GHV — Goou_Zi High-efficiency Video** (`.ghv`)  
-**GHA — Goou_Zi High-efficiency Audio** (`.gha`)
+**Goou_Zi High-efficiency Video**
 
-GHV is an experimental open media format built from scratch. It is not H.264/VP9/AV1 hidden behind a custom extension. Current development uses our own **GHVC9** transform/motion codec; embedded/standalone audio uses **GHAC1**. GHVC4 through GHVC8 remain decodable, and the frozen GHVC8 release is retained at `ghv-0.8-stable-perf2`.
+[简体中文](README_CN.md)
 
-> Development format: bitstream compatibility can still change before 1.0.
+GHV is an experimental open video and audio codec ecosystem focused on four
+goals: **SMALL, CLEAR, FAST, STABLE**. The repository contains the project's
+own GHVC video codec, GHAC audio codec, containers, native implementation,
+development tools, specifications, compatibility tests, and measured benchmark
+history.
 
-## Why 0.7 exists
+> **Project status: Beta (`0.9.0-beta.1`).** GHV is not production-ready or an
+> archival format. Bitstreams, APIs, performance, and tooling can still change
+> before 1.0. Existing codec generations are kept decodable where practical.
 
-The fixed Test A 960x544/30 compression benchmark evolved like this:
+## Design principles
 
-- MP4: **24.6 MB**
-- OGV: **45.2 MB**
-- early GVID: **1.41 GB**
-- GHV 0.4: **927 MB**
-- GHV 0.5: **819 MB** (historical run)
-- GHV 0.6: **675.025 MiB** (current-machine rerun)
-- GHV 0.7: **443.249 MiB**
+- **Small:** improve real compression efficiency, not merely wrap another codec.
+- **Clear / high quality:** do not trade severe visual or audio damage for size.
+- **Fast:** encoding matters, and software decoding must retain realtime headroom.
+- **Stable:** correct timestamps, seek, CRC, bounded memory, clean failure, and
+  stable A/V playback are part of the format—not optional polish.
 
-Pixel-domain residual packing had reached diminishing returns. GHV 0.7 introduces a real 8x8 integer-transform architecture and cuts both fixed real-video outputs by roughly one third. It also closes a player failure mode where fatal video decode could leave audio running.
+## Formats and codecs
 
-## GHV 0.7 highlights
+| Name | Role | Current version |
+|---|---|---:|
+| **GHV** | Video/audio container and media system | 0.9 development |
+| **GHVC** | GHV's native video codec | **GHVC9** encoder; GHVC4–9 decoders |
+| **GHA** | Standalone audio container | 0.2 development |
+| **GHAC** | GHV/GHA native audio codec | **GHAC1** |
 
-- **GHVC7 / GTC7** native transform codec.
-- 8x8 sequency-ordered integer Walsh-Hadamard transform with exact scalar inverse.
-- Frequency-, quality-, and chroma-aware coefficient quantization.
-- I-frame DC, vertical, and horizontal prediction selected by estimated coded size.
-- Closed-loop same-position P prediction and zero-coefficient skip blocks.
-- 3-bit block descriptors, zig-zag scan, trailing-zero elimination, zero-run and signed varint levels.
-- OpenMP P-block encode/decode with a portable scalar fallback.
-- Source-sampled Repeat detection, scene-change I frames, and bounded keyframe intervals.
-- `ghvbench.py` can emit human and JSON reports with encode/decode FPS, CRC, PSNR, and SSIM.
-- Player supports GHVC7 and monitors decoder/mux/presenter health. Fatal video failure now stops the complete A/V chain.
-- `ghvrepair.py`, `ghvverify.py`, `ghvdoctor.py`, and `ghvinfo.py` support the versioned native codecs through GHVC9.
+GHVC and GHAC are implemented by this project. They are not H.264, HEVC, VP9,
+AV1, Opus, or another external codec hidden behind a `.ghv`/`.gha` extension.
+FFmpeg is used by conversion tools to read source media; it does not encode or
+decode GHVC/GHAC.
 
-The first GHVC7 profile intentionally does not write motion vectors yet. Motion must be selected by actual coded cost in a future profile; the experimental GHVC6 `GPM6` code remains in-tree.
+The authoritative project, codec, Studio, Player, and library versions live in
+[`VERSION.json`](VERSION.json). Run `python ghvversion.py` to inspect them.
 
-## Retained GHV 0.6 features
+## Current status
 
-- **GHVC6** native codec.
-- **GBP6** chunked residual format. Each 256-block chunk is independently packable/decodable.
-- Parallel native packing/decoding for HD frames through OpenMP when available.
-- Adaptive 64-byte residual modes:
-  - zero block;
-  - fixed 1–8 bit packing;
-  - sparse bitmap mode;
-  - custom Golomb-Rice modes (`k=0..5`).
-- Per-block byte-delta transform on P residuals.
-- **ZP06** zero-run wrapper is selected only when it actually makes a frame payload smaller.
-- Closed-loop lossy P residual quantization to reduce temporal noise cost.
-- Experimental **32x32 local block motion** (`GPM6`). It is implemented but deliberately disabled in speed-oriented presets until it wins more consistently on real footage.
-- **Direct native mux**: `ghvcore` writes the final GHV header, VFRM records and index itself. Python no longer receives/copies every packed video frame.
-- Zero-motion P frames use a dedicated fast path when motion search is disabled, avoiding a pointless 32x32 motion-map allocation/lookup on every 1080p frame.
-- 16 MiB native pipe buffers for HD conversion.
-- Native decoder now has a producer/consumer frame queue and a larger startup cushion (half of the configured queue).
-- Player adds FFmpeg packet queues and makes **video the master clock**, so audio should no longer run far ahead when the video side has a temporary stall.
-- `ghvdoctor.py` / `diagnose.bat` measures both native decode FPS **and the Native→FFmpeg rawvideo handoff**, so a presentation-pipe bottleneck can be separated from a codec bottleneck.
-- Playback buffer defaults to **Auto** (~64 MiB of decoded YUV, bounded to 8–32 frames).
-- `ghvrepair.py` / `repair.bat` can rebuild a lost/corrupt frame index from intact `VFRM` records.
-- `ghvverify.py` still validates the complete decode path and CRCs.
+| Item | Status |
+|---|---|
+| Project version | **0.9.0-beta.1** |
+| Current video codec | **GHVC9 Milestone 1** |
+| Current audio codec | **GHAC1** |
+| Native video compatibility | GHVC4, 5, 6, 7, 8, 9 |
+| Primary verified platform | Windows 11 x64 |
+| Linux/macOS | Native core build scripts exist; current milestone is not formally acceptance-tested there |
+| Active focus | Codec compression, encoder RD cost, decoder reconstruction, robustness |
+| Deferred | New player UI, Godot/MovieWriter, VLC/PotPlayer and other ecosystem integrations |
 
-## Fixed real-video benchmark
+GHVC9 retains GHVC8's 16×16 local motion, median MV prediction, SKIP,
+8×8 transform, quantization model, CRC, 64-bit index, and seek model. It adds a
+predictor-ranked RD shortlist and independently decodable coefficient chunks
+with capped-unary runs and signed Rice coding. See
+[`SPEC_GHV_0.9.md`](SPEC_GHV_0.9.md).
 
-Development machine, Balanced q78 with GHAC1 HQ audio. These are full fixed-video runs, not synthetic clips.
+## Latest verified benchmark
 
-| Test | Codec | Size | Encode | Decode | PSNR | SSIM |
-|---|---|---:|---:|---:|---:|---:|
-| A 960x544 | GHVC6 | 675.025 MiB | 322.68 fps | 209.2 fps | 50.163 dB | 0.995773 |
-| A 960x544 | **GHVC7** | **443.249 MiB** | 162.51 fps | **313.3 fps** | 45.688 dB | 0.985877 |
-| B 1920x1080 | GHVC6 | 1350.329 MiB | 100.04 fps | 82.8 fps | 48.374 dB | 0.995662 |
-| B 1920x1080 | **GHVC7** | **906.208 MiB** | 48.23 fps | **83.8 fps** | 46.894 dB | 0.991389 |
+All rows below come from the same authoritative GHVC9 Milestone 1 suite:
+Balanced preset, q78, GHAC1 HQ audio, complete native CRC verification, and
+full quality measurement. Machine: Windows 11, Intel64 Family 6 Model 183,
+20 logical cores. The installed RTX 4060 Ti was not used by the codec. FPS is
+machine-specific and should not be treated as a universal hardware claim.
 
-The latest profile-guided GHVC8 implementation is byte-identical to the first
-GHVC8 release but substantially faster:
+| Test | Source | GHVC9 output | Encode | Verified decode | PSNR / SSIM | Playback |
+|---|---|---:|---:|---:|---:|---|
+| A — compression/quality | 960×544, 30 fps, 127.4 s | **210.616 MiB** | **169.317 fps** | **913.114 fps** | 45.356 dB / 0.984213 | Visual PASS |
+| B — 1080p stability | 1920×1080, 30 fps, 104.118 s | **405.317 MiB** | **52.810 fps** | **279.601 fps** | 46.628 dB / 0.990219 | PASS, 0 drops/freezes |
+| C — 4K stress | 3840×2160, 24 fps, 181.348 s | **3062.501 MiB** | **11.196 fps** | **59.362 fps (2.473× realtime)** | 47.084 dB / 0.986903 | PASS, 0 drops/freezes |
 
-| Test | GHVC8 size | Encode old -> optimized | Verified decode old -> optimized |
-|---|---:|---:|---:|
-| A 960x544 | 288.986 MiB | 76.34 -> **140.44 fps** | 283.76 -> **448.17 fps** |
-| B 1920x1080 | 553.891 MiB | 25.83 -> **45.46 fps** | 81.34 -> **141.19 fps** |
-| C 3840x2160 | 4081.516 MiB | 6.16 -> **9.78 fps** | 18.73 -> **30.21 fps** |
+Compared with the frozen GHVC8 baseline, GHVC9 reduces A/B/C size by
+**27.12% / 26.82% / 24.97%**, while improving both measured encode and decode
+speed. Test A is still about 4.66× the historical ~45.2 MB OGV reference, so
+compression remains unfinished and the project does not claim to outperform
+established codecs.
 
-Test C now exceeds realtime decode with CRC verification and completed a full
-4K24 controlled playback run with no freeze or audio-speed event. See
-`benchmarks/GHVC8_PERFORMANCE_2026-09-15.md`.
+[Full GHVC9 benchmark report](benchmarks/GHVC9_MILESTONE1_2026-09-16.md) ·
+[JSON reports](benchmarks/reports) ·
+[Project state](PROJECT_STATE.md)
 
-The next byte-identical GHVC8 iteration adds exact RD early rejection and
-reusable decoder coefficient scratch. A/B/C now encode at **155.22 / 48.80 /
-10.46 fps** and fully verified decode at **670.85 / 211.44 / 46.00 fps**.
-Output size, SHA-256, PSNR, SSIM, and visual quality are unchanged. See
-`benchmarks/GHVC8_PERFORMANCE_ITERATION_2_2026-09-15.md` and
-`GODOT_INTEGRATION_NOTES.md`.
+### Verified visual comparison
 
-GHVC9 Milestone 1 changes the P-frame bitstream while preserving the GHVC8
-quantization and reconstruction model. A predictor-ranked shortlist cuts full
-RD candidate entries by one third, and independently decodable 256-block Rice
-coefficient chunks reduce rate while retaining parallel decode:
+The frame below is one of the fixed 10/25/50/75/90% Test A checks. The complete
+set is stored under `benchmarks/visual/ghvc9_m1_test_a`.
 
-| Test | GHVC8 -> GHVC9 size | Encode GHVC8 -> GHVC9 | Decode GHVC8 -> GHVC9 | Quality |
-|---|---:|---:|---:|---:|
-| A 960x544 | 288.986 -> **210.616 MiB** | 155.223 -> **169.317 fps** | 670.845 -> **913.114 fps** | 45.356 dB / 0.984213 |
-| B 1920x1080 | 553.891 -> **405.317 MiB** | 48.795 -> **52.810 fps** | 211.439 -> **279.601 fps** | 46.628 dB / 0.990219 |
-| C 3840x2160 | 4081.516 -> **3062.501 MiB** | 10.464 -> **11.196 fps** | 45.997 -> **59.362 fps** | 47.084 dB / 0.986903 |
-
-Test C is now 2.47x realtime at 4K24. Full B and C playback validation had
-zero dropped frames, freezes, or audio-rate events. See
-`benchmarks/GHVC9_MILESTONE1_2026-09-16.md`.
-
-GHVC7 reduces Test A by **34.34%** and Test B by **32.89%**. Encoding is about half as fast as GHVC6, while optimized decode is equal or faster. Both Test B outputs completed full 104.118 s native A/V playback without a freeze on this machine. See `benchmarks/GHVC7_BENCHMARK_2026-09-14.md` for method and limitations.
-
-## Windows quick start
-
-For normal playback, extract `releases/GHV_Player_Windows_x64.zip` and run
-`GHV Player.exe`. It is the native end-user player and needs neither Python nor
-FFmpeg. Open with Ctrl+O, pass a `.ghv` path, or drag a file onto the window.
-See `apps/ghv_player/README.md` for controls.
-
-`ghvplay.py` is retained as the **Developer / Diagnostic Player** for telemetry,
-experiments, and codec troubleshooting. The source/conversion tools below still
-use Python and FFmpeg for input-media decoding.
-
-1. Install Python 3.10+ and FFmpeg.
-2. Run `setup_windows.bat`.
-3. If MSVC / MinGW-w64 / Clang is present, setup builds:
-   - `native/bin/ghvcore.exe`
-   - `native/bin/ghvdecode.exe`
-4. Open `GHV_Studio.bat`.
-5. Use **Balanced** for normal testing. Native mode is strongly recommended for 1080p.
-
-## Useful commands
-
-```powershell
-python ghvenc.py input.mp4 output.ghv --codec 9 --preset balanced
-python ghvplay.py output.ghv              # Auto buffer
-python ghvverify.py output.ghv
-python ghvdoctor.py output.ghv
-python ghvinfo.py output.ghv
-python ghvrepair.py output.ghv
-python ghvbench.py input.mp4 output.ghv --preset balanced
-python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --quality-metrics --decode-frames 0 --report-json report.json
-python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --json
-```
-
-For a large 1080p file, Auto is now the default. You can still force a larger cushion:
-
-```powershell
-python ghvplay.py output.ghv --engine native --buffer 24
-```
-
-Legacy GHVC6 and its experimental block motion can still be selected:
-
-```powershell
-python ghvenc.py input.mp4 output.ghv --codec 6 --preset balanced --motion-range 4
-```
-
-At the moment normal presets keep motion search at zero because current local motion search can still cost more bytes than it saves on some footage. The feature stays in-tree for continued work rather than being faked as a finished win.
-
-## Diagnosing “audio continues, picture freezes”
-
-First verify the file:
-
-```powershell
-python ghvverify.py problem.ghv
-```
-
-Then benchmark the playback decoder:
-
-```powershell
-python ghvdoctor.py problem.ghv
-```
-
-Interpretation:
-
-- Verify **FAIL**: codec/file bug; keep the failing frame number.
-- Verify **PASS**, decoder below ~1.15x realtime: machine/decoder throughput is the likely cause.
-- Verify **PASS**, decoder comfortably above realtime but playback still freezes: presentation/mux/player path needs investigation.
-
-The normal player path uses the native decoder, a bounded decoded-frame queue, fixed-rate audio output, and an explicitly scheduled renderer. Audio/monotonic time is invariant: early video waits and late video may drop. A fatal decoder error stops both A/V paths. Use `--stats playback.json` for drift, queue, drop, underrun, freeze, and speed telemetry.
+![Test A source and GHVC9 decoded frame at 50 percent](benchmarks/visual/ghvc9_m1_test_a/compare_50_frame_1910.png)
 
 ## Architecture
 
-```text
-MP4 / MKV / MOV / OGV / ...
-          |
-          | FFmpeg input decode only
-          v
-       YUV420p
-          |
-          v
-        GHVC9
-   I / P / Repeat prediction
-   8x8 integer transform
-   frequency-aware quantization
-   zig-zag + trailing-zero removal
-   capped-unary runs + signed Rice levels
-   predictor-ranked RD shortlist
-   packed skip/predictor descriptors
-   chunked Rice coefficient coding
-          |
-          +------ GHAC1 audio
-          |
-          v
-        .ghv
-
-End-user playback:
-.ghv -> libghv -> bounded YUV queue -> D3D11 YUV renderer
-          GHAC1 PCM -> WASAPI --------^ audio device master clock
-
-Developer/diagnostic playback remains available through `ghvplay.py`.
+```mermaid
+flowchart LR
+    Input[Input media] -->|FFmpeg input decode| Raw[YUV420 + PCM]
+    Raw --> GHVC[GHVC9 video encoder]
+    Raw --> GHAC[GHAC1 audio encoder]
+    GHVC --> GHV[GHV container]
+    GHAC --> GHV
+    GHAC --> GHA[GHA audio container]
+    GHV --> Lib[libghv / native decoder]
+    Lib --> Host[Player or host application]
 ```
 
-FFmpeg is still used to decode source media during conversion and by some
-developer tools. GHV Player itself does not use FFmpeg. FFmpeg does **not**
-encode or decode GHVC6/7/8/9 itself.
+The decoder core returns timestamps and native YUV/PCM data. Playback timing is
+handled separately with a fixed-rate audio master clock, bounded queues, and
+late-video dropping; the codec does not slow or pitch-shift audio to hide a
+slow video path.
 
-## Current target
+## Included tools
 
-The first hard target remains **OGV/Theora**, not AV1. GHVC9 Milestone 1 has reached **210.616 MiB** on Test A with a fixed-position visual PASS, but is still about 4.66x the 45.2 MB historical OGV result.
+- `ghvenc.py` / `ghaenc.py` — source-media conversion to GHV/GHA.
+- `native/ghvcore.cpp` / `native/ghvdecode.cpp` — native GHVC encoder/decoder.
+- `libghv/` — C++ decoder foundation with metadata, indexed seek, YUV and PCM.
+- `GHV_Studio.bat` / `GHA_Studio.bat` — development desktop frontends.
+- `GHV Player.exe` source — native Windows D3D11/WASAPI validation player.
+- `ghvverify.py` — index, full decode, and reconstructed-frame CRC verification.
+- `ghvrepair.py` — rebuild an index from intact frame records.
+- `ghvdoctor.py` — decoder/playback throughput diagnostics.
+- `ghvbench.py` — structured encode/decode/quality/profile benchmark reports.
+- `ghvframes.py` — fixed-position source/decoded visual comparisons.
 
-Next major codec work:
+The Player and Studios are beta development tools. Ecosystem expansion is
+currently paused while GHVC/GHAC mature.
 
-- adaptive 32x32/16x16 motion partitions and merge-like motion reuse;
-- measured DC prediction and magnitude/context entropy experiments;
-- encoder RD batching and I-frame pipeline optimization;
-- CRF-like rate control and preset curves;
-- malformed-stream/fuzz coverage and broader cross-platform verification.
+## Requirements and build
 
-See `SPEC_GHV_0.9.md`, `PROJECT_STATE.md`, `ROADMAP.md`, and `CHANGELOG.md`.
+Required for conversion:
+
+- Python 3.10+
+- FFmpeg and ffprobe
+- Python packages from `requirements.txt`
+
+Required for the native core:
+
+- A C++17 compiler
+- CMake for the full libghv/Player build
+- OpenMP is optional but recommended
+
+### Windows
+
+```powershell
+python -m pip install -r requirements.txt
+native\build_windows.bat
+```
+
+For the full native library, tests, and Windows Player:
+
+```powershell
+cmake -S native -B native/build
+cmake --build native/build --config Release
+run_selftest.bat
+```
+
+Visual Studio Build Tools is the best-tested compiler path. `setup_windows.bat`
+provides an interactive setup helper.
+
+### Linux and macOS
+
+`native/build_linux.sh` and `native/build_macos.sh` build the command-line native
+core. These paths are maintained in source but have not received the current
+Windows milestone's full A/B/C and playback acceptance pass.
+
+## Usage
+
+Encode video and embedded audio with the current Balanced GHVC9/GHAC1 path:
+
+```powershell
+python ghvenc.py input.mp4 output.ghv --codec 9 --preset balanced
+```
+
+Encode standalone audio:
+
+```powershell
+python ghaenc.py input.wav output.gha --mode hq
+```
+
+Inspect, verify, diagnose, or repair:
+
+```powershell
+python ghvinfo.py output.ghv
+python ghvverify.py output.ghv
+python ghvdoctor.py output.ghv --verify
+python ghvrepair.py damaged.ghv repaired.ghv
+```
+
+Run a reproducible full benchmark:
+
+```powershell
+python ghvbench.py input.mp4 output.ghv --codec 9 --preset balanced --profile --quality-metrics --decode-frames 0 --report-json report.json
+```
+
+Use `--help` on each tool for the complete current CLI. Generated `.ghv`,
+`.gha`, source videos, build trees, logs, and packages are intentionally ignored
+by Git; small compatibility fixtures and benchmark summaries remain tracked.
+
+## Specifications
+
+- [GHV 0.9 / GHVC9](SPEC_GHV_0.9.md)
+- [GHV 0.8 / GHVC8](SPEC_GHV_0.8.md)
+- [GHV 0.7 / GHVC7](SPEC_GHV_0.7.md)
+- [GHA 0.2](SPEC_GHA_0.2.md)
+- [GHAC1 / GAUD historical specification](SPEC_GAUD_0.1.md)
+
+Older specifications remain in the repository so decoder compatibility and
+format evolution can be audited from the Git history.
+
+## Versioning and development workflow
+
+- Project releases use SemVer-style beta tags, such as `v0.9.0-beta.1`.
+- Codec milestones use separate tags, such as `ghv-0.9-m1`.
+- `main` is the latest tested public beta, not a claim of 1.0 stability.
+- Active codec work happens on generation branches such as `codex/ghvc9`.
+- A logical milestone is built, tested, committed, and pushed; GitHub history is
+  the project's permanent development record.
+- Existing stable recovery tags are immutable. GHVC8 remains recoverable at
+  `ghv-0.8-stable-perf2`.
+
+The 1.0 gate remains: competitive size without visible quality loss, efficient
+software decode, stable 1080p/4K playback, robust seek/error behavior,
+cross-platform reference decoding, and a complete public specification.
+
+## Project documentation
+
+- [Current project state](PROJECT_STATE.md)
+- [Roadmap](ROADMAP.md)
+- [Changelog](CHANGELOG.md)
+- [GHVC8 recovery instructions](RESTORE_GHVC8_STABLE.md)
+- [libghv API notes](LIBGHV_API.md)
+
+## License
+
+The active license is recorded in [`LICENSE`](LICENSE). See the repository
+history for provenance. No claim is made that an experimental codec is free of
+all possible third-party patent claims in every jurisdiction.

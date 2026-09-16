@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — GHV 0.9 / GHVC9 Milestone 1
+## Unreleased
+
+- No post-beta changes yet.
+
+## 0.9.0-beta.1 — 2026-09-16
+
+### Added
 
 - Added codec id 9 / `GBP9` while retaining GHVC4-8 decode compatibility and
   leaving `SPEC_GHV_0.8.md` unchanged.
@@ -15,16 +21,26 @@
   decoder behavior is independent of the encoder preset.
 - Added `SPEC_GHV_0.9.md`, GHVC9 self-tests, malformed chunk rejection, and
   native/tool/libghv version dispatch through codec 9.
+
+### Performance
+
 - Test A: 288.986 -> **210.616 MiB (-27.12%)**, encode 155.223 -> **169.317
   fps**, decode 670.845 -> **913.114 fps**, 45.356 dB / 0.984213, visual PASS.
 - Test B: 553.891 -> **405.317 MiB (-26.82%)**, encode 48.795 -> **52.810
   fps**, decode 211.439 -> **279.601 fps**, full playback PASS with zero drops.
 - Test C: 4081.516 -> **3062.501 MiB (-24.97%)**, encode 10.464 -> **11.196
   fps**, decode 45.997 -> **59.362 fps (2.473x realtime)**, full playback PASS.
+
+### Changed and compatibility
+
 - Rejected whole-payload PackBits, the measured DC predictor, Rice `k=1`, and
   serial unchunked coefficient parsing after unfavorable rate/CPU tradeoffs.
 - Fixed `libghv`'s container-version gate for GHV 0.9 and made fixed-frame
   comparison labels derive the actual codec version.
+- Centralized project, codec, Studio, Player, and library versions in
+  `VERSION.json`; Studio and primary CLI version displays now read it.
+- Refreshed the public README and repository workflow for the first formal
+  GitHub beta while retaining the complete local and pre-existing GitHub history.
 
 ## Unreleased — GHVC8 Native Performance
 
