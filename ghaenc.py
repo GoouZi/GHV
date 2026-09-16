@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, json, os, shutil, subprocess, time
 from pathlib import Path
 from ghv.gha import encode_pcm16le, parse_header
+from ghv.version import version_summary
 
 
 def find_tool(name, explicit=None):
@@ -28,6 +29,7 @@ def probe(path, ffprobe):
 
 def main():
     ap = argparse.ArgumentParser(description='Encode FFmpeg-readable audio/video to GHA 0.2 / GHAC1')
+    ap.add_argument('--version', action='version', version=version_summary())
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--mode', choices=['hq', 'compact'], default='hq')

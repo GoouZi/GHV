@@ -1,6 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+python "%~dp0..\tools\generate_version_header.py"
+if errorlevel 1 exit /b 1
 if not exist bin mkdir bin
 where cl >nul 2>nul
 if %errorlevel%==0 (

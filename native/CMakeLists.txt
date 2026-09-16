@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.12)
 project(ghv_native LANGUAGES CXX)
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tools/generate_version_header.py
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+    RESULT_VARIABLE GHV_VERSION_RESULT
+  )
+  if(NOT GHV_VERSION_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate native/ghv_version.h")
+  endif()
+endif()
 find_package(OpenMP QUIET)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../libghv ${CMAKE_CURRENT_BINARY_DIR}/libghv)
 add_executable(ghvcore ghvcore.cpp)

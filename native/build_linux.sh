@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")"
+python3 ../tools/generate_version_header.py
 mkdir -p bin
 if c++ -O3 -std=c++17 -DNDEBUG -fopenmp ghvcore.cpp -o bin/ghvcore 2>/dev/null; then
   echo "Built ghvcore with OpenMP"

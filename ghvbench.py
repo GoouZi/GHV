@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, json, os, platform, re, shutil, struct, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 from ghv.container import read_header, read_index, FRAME_FMT, FRAME_SIZE
+from ghv.version import version_summary
 
 ROOT = Path(__file__).resolve().parent
 RESULT_RE = re.compile(r'RESULT\s+frames=(\d+)\s+duration=([0-9.]+)\s+size_mib=([0-9.]+)\s+elapsed=([0-9.]+)\s+avg_fps=([0-9.]+)')
@@ -115,6 +116,7 @@ def measure_quality(source: Path,path: Path):
 
 def main():
     ap = argparse.ArgumentParser(description='Encode + verify a GHV file and print a repeatable benchmark report')
+    ap.add_argument('--version', action='version', version=version_summary())
     ap.add_argument('input')
     ap.add_argument('output', nargs='?')
     ap.add_argument('--preset', choices=['veryfast','fast','compact','balanced','quality'], default='balanced')

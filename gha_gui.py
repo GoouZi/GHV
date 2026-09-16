@@ -3,6 +3,7 @@ from __future__ import annotations
 import os, subprocess, sys, threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from ghv.version import CURRENT_GHAC, GHA_STUDIO_VERSION, PROJECT_STATUS
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -10,7 +11,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('GHA Studio 0.2')
+        self.title(f'GHA Studio {GHA_STUDIO_VERSION} ({PROJECT_STATUS})')
         self.geometry('760x520')
         self.minsize(680, 470)
         self.infile = tk.StringVar()
@@ -31,7 +32,7 @@ class App(tk.Tk):
         ttk.Button(top, text='Browse…', command=self.pick_output).grid(row=3, column=1)
         top.columnconfigure(0, weight=1)
 
-        opt = ttk.LabelFrame(self, text='GHAC1')
+        opt = ttk.LabelFrame(self, text=f'GHAC{CURRENT_GHAC}')
         opt.pack(fill='x', **pad)
         ttk.Label(opt, text='Mode').grid(row=0, column=0, padx=8, pady=8, sticky='w')
         ttk.Combobox(opt, textvariable=self.mode, values=['hq', 'compact'], state='readonly', width=14).grid(row=0, column=1, padx=8, pady=8, sticky='w')

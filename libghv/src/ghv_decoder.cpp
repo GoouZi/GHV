@@ -11,6 +11,7 @@
 #include "ghvcodec7.h"
 #include "ghvcodec8.h"
 #include "ghvcodec9.h"
+#include "ghv_version.h"
 
 namespace ghv {
 namespace {
@@ -332,6 +333,6 @@ bool Decoder::decode_audio(AudioBuffer& audio, Error* error) {
 }
 
 bool Decoder::eof() const { return impl_->next_frame >= impl_->metadata.frame_count; }
-const char* version_string() { return "libghv 0.2 / GHVC7-9"; }
+const char* version_string() { return GHV_LIB_VERSION_STRING; }
 
 } // namespace ghv

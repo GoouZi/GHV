@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")"
+python3 ../tools/generate_version_header.py
 mkdir -p bin
 CXX=${CXX:-c++}
 # Apple Clang usually has no OpenMP runtime by default; try it, then fall back.

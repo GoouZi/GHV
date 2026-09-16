@@ -1,0 +1,15 @@
+{
+  "project_version": "0.9.0-beta.1",
+  "project_status": "beta",
+  "ghv_container_version": "0.9",
+  "gha_container_version": "0.2",
+  "current_ghvc_encoder": 9,
+  "supported_ghvc_decoders": [4, 5, 6, 7, 8, 9],
+  "current_ghac_encoder": 1,
+  "supported_ghac_decoders": [1],
+  "ghv_studio_version": "0.9.0-beta.1",
+  "gha_studio_version": "0.2.0-beta.1",
+  "player_version": "0.1.0-beta.1",
+  "libghv_version": "0.2.0-beta.1",
+  "libghv_supported_ghvc_decoders": [7, 8, 9]
+}

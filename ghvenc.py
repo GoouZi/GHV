@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ghv.codec4 import quantize_yuv420, encode_frame as encode_frame4
 from ghv.gha import encode_pcm16le as encode_ghac1
+from ghv.version import version_summary
 from ghv.container import (Header, HEADER_SIZE, FRAME_FMT, AUDIO_FMT,
                            INDEX_HEAD_FMT, INDEX_ENTRY_FMT, VFRM, AUD0, INDX,
                            pack_motion, read_header, read_index)
@@ -222,6 +223,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
 
 def main():
     ap = argparse.ArgumentParser(description='Encode FFmpeg-readable video to GHV / native GHVC6 through GHVC9')
+    ap.add_argument('--version', action='version', version=version_summary())
     ap.add_argument('input')
     ap.add_argument('output')
     ap.add_argument('--preset', choices=sorted(PRESETS), default='balanced')
