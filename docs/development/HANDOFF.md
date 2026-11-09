@@ -4,6 +4,19 @@ Last updated: 2026-11-09
 
 ## Latest continuation — 2026-11-09
 
+Adding `--compact-coefficients` to `--codec 9 --preset balanced --compact-motion`
+reduced Test A to **198.466 MiB**, Test B to **379.704 MiB** and the fixed
+240-frame C10 excerpt to **147.194 MiB**. All three files passed full decode
+and matched the previous motion-only frame types, timestamps and reconstructed
+CRCs. A needs a further 18.466 MiB reduction to reach 180 MiB. The encoder
+chooses a short DC-only block header and context-dependent Rice levels
+independently using measured bit costs for each frame. The bitstream details
+are in the 0.9 specification. Use updated native decoders with these opt-in
+features. C10 verified decode ran at 56.67 fps (4K24). Full C playback and
+cross-platform acceptance remain open. Reports are in
+`benchmarks/milestones/ghvc9/reports/m2_ctx_*_2026-11-09.json`.
+
+
 The opt-in `--compact-motion` experiment now reduces full Test A from
 210.616 to 202.881 MiB and full Test B from 405.317 to 383.846 MiB.
 All 3,822 reconstructed CRCs and timestamps on A match the M1 baseline.

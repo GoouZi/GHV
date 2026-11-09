@@ -40,16 +40,22 @@ struct BitReader {
     }
 };
 struct FastToken {uint16_t level=0;uint8_t run=0,bits=0;};
+template<int normal_k=LEVEL_RICE_K,int dc_k=normal_k>
 inline const std::array<FastToken,65536>& fast_tokens(){
     static const std::array<FastToken,65536> table=[](){std::array<FastToken,65536> t{};
-        for(uint32_t word=0;word<65536;word++){int at=0,run=0;while(at<16&&((word>>at)&1u)==0){run++;at++;}if(at>=16||run>=7)continue;at++;int q=0;while(at+q<16&&((word>>(at+q))&1u)==0)q++;if(at+q+1+LEVEL_RICE_K>16||q>=31)continue;const uint32_t z=(uint32_t(q)<<LEVEL_RICE_K)|((word>>(at+q+1))&((1u<<LEVEL_RICE_K)-1));if(!z)continue;t[word]={uint16_t(z),uint8_t(run),uint8_t(at+q+1+LEVEL_RICE_K)};}return t;}();
+        for(uint32_t word=0;word<65536;word++){int at=0,run=0;while(at<16&&((word>>at)&1u)==0){run++;at++;}if(at>=16||run>=7)continue;at++;int q=0;while(at+q<16&&((word>>(at+q))&1u)==0)q++;const int k=run==0?dc_k:normal_k;if(at+q+1+k>16||q>=31)continue;const uint32_t z=(uint32_t(q)<<k)|((word>>(at+q+1))&((1u<<k)-1));if(!z)continue;t[word]={uint16_t(z),uint8_t(run),uint8_t(at+q+1+k)};}return t;}();
     return table;
 }
 
 inline void put_run_bits(BitWriter& bw,uint32_t run){if(run<7)bw.unary(run);else{bw.unary(7);bw.put(run,6);}}
 inline uint32_t get_run_bits(BitReader& br){uint32_t run=0;while(!br.get(1)){if(++run>7)throw std::runtime_error("bad GHVC9 run unary");}return run<7?run:br.get(6);}
-inline void put_level_bits(BitWriter& bw,uint32_t z){uint32_t q=z>>LEVEL_RICE_K;if(q<31){bw.unary(q);bw.put(z&((1u<<LEVEL_RICE_K)-1),LEVEL_RICE_K);}else{bw.unary(31);bw.put(z,32);}}
-inline uint32_t get_level_bits(BitReader& br){uint32_t q=br.unary31();uint32_t z=q<31?((q<<LEVEL_RICE_K)|br.get(LEVEL_RICE_K)):br.get(32);if(!z)throw std::runtime_error("zero GHVC9 level");return z;}
+inline void put_level_bits(BitWriter& bw,uint32_t z,int k=LEVEL_RICE_K){uint32_t q=z>>k;if(q<31){bw.unary(q);bw.put(z&((1u<<k)-1),k);}else{bw.unary(31);bw.put(z,32);}}
+inline uint32_t get_level_bits(BitReader& br,int k=LEVEL_RICE_K){uint32_t q=br.unary31();uint32_t z=q<31?((q<<k)|br.get(k)):br.get(32);if(!z)throw std::runtime_error("zero GHVC9 level");return z;}
+
+inline int level_bit_count(uint32_t z,int k) {
+    const uint32_t quotient=z>>k;
+    return quotient<31 ? int(quotient)+1+k : 64;
+}
 
 inline void put32(std::vector<uint8_t>& out,uint32_t value) {
     for(int i=0;i<4;i++) out.push_back(uint8_t(value>>(8*i)));
@@ -160,38 +166,54 @@ inline void compact_motion(std::vector<uint8_t>& packet) {
     }
     if (pos!=end) throw std::logic_error("encoder motion size mismatch");
     if (body.size()>=old_size) return;
-    packet[7]=1;
+    packet[7]|=1;
     for (unsigned i=0; i<4; ++i) packet[20+i]=uint8_t(body.size()>>(8*i));
     std::copy(body.begin(),body.end(),packet.begin()+24);
     packet.erase(packet.begin()+24+body.size(),packet.begin()+end);
 }
 
-inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h) {
+inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h,bool compact_coefficients=false) {
     if(raw.size()<24)throw std::runtime_error("short GHVC9 bit source");
     const uint32_t blocks=ghvc7::le32(raw.data()+12),mvbytes=ghvc7::le32(raw.data()+20);
     const size_t desc_start=24+size_t(mvbytes),desc_bytes=(size_t(blocks)+7)/8;
     if(desc_start+desc_bytes>raw.size()||blocks!=ghvc7::block_count(w,h))throw std::runtime_error("invalid GHVC9 bit source");
+    int64_t dc_blocks=0, nonzero_blocks=0, context_savings=0;
     std::vector<size_t> offsets(size_t(blocks)+1);size_t p=desc_start+desc_bytes;
     for(uint32_t bi=0;bi<blocks;bi++){
         offsets[bi]=p;if((raw[desc_start+(bi>>3)]>>(bi&7))&1)continue;
         if(p>=raw.size())throw std::runtime_error("truncated GHVC9 bit block");const int last=raw[p++];if(last>63)throw std::runtime_error("bad GHVC9 bit end");int pos=0;
-        while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,p,run,level);if(!level||run>uint32_t(last-pos))throw std::runtime_error("bad GHVC9 bit level");pos+=int(run)+1;}
+        ++nonzero_blocks;
+        if(last==0) ++dc_blocks;
+        while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,p,run,level);if(!level||run>uint32_t(last-pos))throw std::runtime_error("bad GHVC9 bit level");if(compact_coefficients) {
+                const int k=(pos==0 && run==0)?3:1;
+                context_savings+=level_bit_count(level,2)-level_bit_count(level,k);
+            }
+            pos+=int(run)+1;}
     }
     offsets[blocks]=p;if(p!=raw.size())throw std::runtime_error("trailing GHVC9 bit source");
     constexpr uint32_t chunk_blocks=256;const uint32_t chunks=(blocks+chunk_blocks-1)/chunk_blocks;std::vector<std::vector<uint8_t>> encoded(chunks);
+    // A DC-only end position costs one bit instead of six. Other positions
+    // cost seven. Allow for up to seven extra padding bits per chunk.
+    const bool context_levels=compact_coefficients && context_savings>7*int64_t(chunks);
+    const bool short_dc=compact_coefficients && 6*dc_blocks-nonzero_blocks>7*int64_t(chunks);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if(chunks>4)
 #endif
     for(long long ci=0;ci<(long long)chunks;ci++){
         const uint32_t first=uint32_t(ci)*chunk_blocks,end=std::min(blocks,first+chunk_blocks);auto& dst=encoded[size_t(ci)];BitWriter bw(dst);
         for(uint32_t bi=first;bi<end;bi++)if(!((raw[desc_start+(bi>>3)]>>(bi&7))&1)){
-            size_t q=offsets[bi];const int last=raw[q++];bw.put(uint32_t(last),6);int pos=0;
-            while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,q,run,level);put_run_bits(bw,run);put_level_bits(bw,level);pos+=int(run)+1;}
+            size_t q=offsets[bi];const int last=raw[q++];if(short_dc) bw.put(last!=0,1);
+            if(!short_dc || last!=0) bw.put(uint32_t(last),6);
+            int pos=0;
+            while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,q,run,level);put_run_bits(bw,run);const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;
+                put_level_bits(bw,level,k);pos+=int(run)+1;}
             if(q!=offsets[bi+1])throw std::runtime_error("GHVC9 block offset mismatch");
         }
         bw.finish();
     }
-    std::vector<uint8_t> out(raw.begin(),raw.begin()+desc_start+desc_bytes);std::copy(BMAGIC,BMAGIC+4,out.begin());put32(out,chunks);
+    std::vector<uint8_t> out(raw.begin(),raw.begin()+desc_start+desc_bytes);std::copy(BMAGIC,BMAGIC+4,out.begin());if(short_dc) out[7]|=2;
+    if(context_levels) out[7]|=4;
+    put32(out,chunks);
     for(const auto& chunk:encoded)put32(out,uint32_t(chunk.size()));for(const auto& chunk:encoded)out.insert(out.end(),chunk.begin(),chunk.end());return out;
 }
 
@@ -210,7 +232,7 @@ inline std::vector<uint8_t> bit_unpack(const std::vector<uint8_t>& in,int w,int 
 
 inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t>& prev,int w,int h,
                         size_t expected,std::vector<uint8_t>& recon,Profile* profile) {
-    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]>1)
+    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]>7)
         throw std::runtime_error("bad GHVC9 bit payload");
     const int quality=in[5];const uint32_t raw=ghvc7::le32(in.data()+8),blocks=ghvc7::le32(in.data()+12),mvc=ghvc7::le32(in.data()+16),mvbytes=ghvc7::le32(in.data()+20);
     ghvc8::QuantTables qt(quality);const int nx=(w+15)/16,ny=(h+15)/16;
@@ -222,7 +244,7 @@ inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t
     for(int my=0;my<ny;my++)for(int mx=0;mx<nx;mx++){
         const ghvc8::MV pred=ghvc8::predictor(mvs,mx,my,nx);
         int dx=0,dy=0;
-        if (in[7]==1) {
+        if (in[7]&1) {
             const unsigned index=unsigned(my*nx+mx), bit=index%8;
             if (!bit) {
                 if (p>=mvend) throw std::runtime_error("missing motion mask");
@@ -257,6 +279,9 @@ inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t
     std::vector<size_t> chunk_start(chunks),chunk_size(chunks);size_t data_start=p+size_t(chunks)*4,cursor=data_start;
     for(uint32_t ci=0;ci<chunks;ci++){chunk_start[ci]=cursor;chunk_size[ci]=ghvc7::le32(in.data()+p+size_t(ci)*4);cursor+=chunk_size[ci];if(cursor>in.size())throw std::runtime_error("bad GHVC9 chunk size");}
     if(cursor!=in.size())throw std::runtime_error("trailing GHVC9 chunk bytes");
+    const bool context_levels=(in[7]&4)!=0;
+    const auto& first_tokens=context_levels?fast_tokens<1,3>():fast_tokens<>();
+    const auto& ac_tokens=context_levels?fast_tokens<1>():fast_tokens<>();
     recon.assign(expected,0);static thread_local std::vector<ghvc7::Candidate> coeff_scratch;if(coeff_scratch.size()<blocks)coeff_scratch.resize(blocks);auto& cv=coeff_scratch;
     const auto coeff_t0=ghvc8::ProfileClock::now();std::atomic<bool> bad{false};
 #ifdef _OPENMP
@@ -268,8 +293,8 @@ inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t
             for(uint32_t bi=first;bi<block_end;bi++){
                 auto& c=cv[bi];if(c.last>=0)for(int old=0;old<=c.last;old++)c.q[ghvc7::ZIGZAG[old]]=0;c.mode=0;c.last=-1;
                 const bool zero=(in[desc_start+(bi>>3)]>>(bi&7))&1;
-                if(!zero){c.last=int(br.get(6));int pos=0;while(pos<=c.last){uint32_t run=0,level=0;uint16_t word=0;const FastToken* ft=nullptr;if(br.peek16(word))ft=&fast_tokens()[word];
-                        if(ft&&ft->bits){run=ft->run;level=ft->level;br.drop(ft->bits);}else{run=get_run_bits(br);level=get_level_bits(br);}
+                if(!zero){c.last=(in[7]&2) && !br.get(1) ? 0 : int(br.get(6));int pos=0;while(pos<=c.last){uint32_t run=0,level=0;uint16_t word=0;const FastToken* ft=nullptr;if(br.peek16(word))ft=&(pos==0?first_tokens:ac_tokens)[word];
+                        if(ft&&ft->bits){run=ft->run;level=ft->level;br.drop(ft->bits);}else{run=get_run_bits(br);const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;level=get_level_bits(br,k);}
                         if(run>uint32_t(c.last-pos))throw std::runtime_error("bad run");pos+=int(run);c.q[ghvc7::ZIGZAG[pos]]=ghvc7::unzig(level);pos++;}}
             }
             if(br.p!=chunk_start[size_t(ci)]+chunk_size[size_t(ci)])throw std::runtime_error("trailing chunk");
@@ -327,9 +352,9 @@ inline std::vector<uint8_t> packbits(const std::vector<uint8_t>& raw) {
     return out;
 }
 
-inline std::vector<uint8_t> pack(const std::vector<uint8_t>& raw,int w,int h,bool compact=false) {
+inline std::vector<uint8_t> pack(const std::vector<uint8_t>& raw,int w,int h,bool compact=false,bool compact_coefficients=false) {
     std::vector<uint8_t> plain=raw;std::copy(PMAGIC,PMAGIC+4,plain.begin());
-    std::vector<uint8_t> bits=bit_pack(raw,w,h);
+    std::vector<uint8_t> bits=bit_pack(raw,w,h,compact_coefficients);
     if (compact) compact_motion(bits);
     return bits.size()<plain.size()?std::move(bits):std::move(plain);
 }
@@ -368,10 +393,10 @@ inline std::vector<uint8_t> unpack(const std::vector<uint8_t>& in,size_t expecte
 inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::vector<uint8_t>& prev,
                                    int w,int h,int quality,int range,std::vector<uint8_t>& recon,
                                    uint64_t* zero_blocks=nullptr,uint64_t* nonzero_mv=nullptr,
-                                   Profile* profile=nullptr,int nonzero_finalists=2,bool compact=false) {
+                                   Profile* profile=nullptr,int nonzero_finalists=2,bool compact=false,bool compact_coefficients=false) {
     auto raw=ghvc8::encode(frame,prev,w,h,quality,range,recon,zero_blocks,nonzero_mv,
                            profile,nonzero_finalists);
-    return pack(raw,w,h,compact);
+    return pack(raw,w,h,compact,compact_coefficients);
 }
 
 inline void decode(const std::vector<uint8_t>& in,const std::vector<uint8_t>* prev,int w,int h,

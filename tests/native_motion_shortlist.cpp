@@ -8,6 +8,32 @@ int main() {
         // residuals are zero, so both groups require only one mask byte.
         std::vector<uint8_t> flat(80*32*3/2,128), expected, decoded_flat;
         auto raw=ghvc8::encode(flat,flat,80,32,78,0,expected);
+        // Build a block sequence whose first chunk contains both large DC
+        // values and small AC values, including an AC with no preceding DC.
+        {
+            auto coeff_source=raw;
+            const size_t desc=24+ghvc7::le32(raw.data()+20);
+            const uint32_t blocks=ghvc7::le32(raw.data()+12);
+            coeff_source.resize(desc);
+            coeff_source.resize(desc+(blocks+7)/8,0);
+            for(uint32_t i=0;i<blocks;++i) {
+                const bool ac=(i%4)==0;
+                coeff_source.push_back(ac?8:0);
+                if(i%8!=0) ghvc8::put_level(coeff_source,0,60);
+                if(ac) ghvc8::put_level(coeff_source,i%8==0?8:7,-1);
+            }
+            const auto original=ghvc9::bit_pack(coeff_source,80,32);
+            auto encoded=ghvc9::bit_pack(coeff_source,80,32,true);
+            if(encoded[7]!=6 || encoded.size()>=original.size())
+                throw std::runtime_error("expected both coefficient flags and a smaller packet");
+            std::vector<uint8_t> reference, result;
+            ghvc9::decode(original,&flat,80,32,1,flat.size(),reference);
+            for(int motion=0;motion<2;++motion) {
+                if(motion) ghvc9::compact_motion(encoded);
+                ghvc9::decode(encoded,&flat,80,32,1,flat.size(),result);
+                if(result!=reference) throw std::runtime_error("coefficient reconstruction mismatch");
+            }
+        }
         auto packet=ghvc9::bit_pack(raw,80,32);
         ghvc9::compact_motion(packet);
         if (packet[7]!=1 || ghvc7::le32(packet.data()+20)!=2)
