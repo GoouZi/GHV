@@ -4,6 +4,14 @@ Last updated: 2026-11-09
 
 ## Latest continuation — 2026-11-09
 
+**Current compact profile:** Test A is now **177.811 MiB** with the same raw
+YUV SHA-256 as M1. The same options yield 332.567 MiB on B and 2424.346 MiB
+on full C. Keyframes use GIC9 where smaller; P-frame flag bit 3 codes nonzero
+coefficients with an exponential tail. The original opt-in development files
+and default M1 files remain decodable. Full C's encode speed relative to
+GHVC8 is the open performance gate. The following paragraphs record earlier
+experiments. See [measurements and commands](../../benchmarks/milestones/ghvc9/GHVC9_COMPACT_2026-11-09.md).
+
 Adding `--compact-coefficients` to `--codec 9 --preset balanced --compact-motion`
 reduced Test A to **198.466 MiB**, Test B to **379.704 MiB** and the fixed
 240-frame C10 excerpt to **147.194 MiB**. All three files passed full decode

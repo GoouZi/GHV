@@ -1,0 +1,53 @@
+{
+  "input": "Test A.mp4",
+  "output": "m2_tail_A.ghv",
+  "preset": "balanced",
+  "codec": 9,
+  "compact_coefficients": true,
+  "actual_codec": 9,
+  "compact_motion": true,
+  "source": {
+    "size_bytes": 25857237,
+    "width": 960,
+    "height": 544,
+    "fps": "30/1",
+    "duration_seconds": 127.4,
+    "video_bitrate_bps": 1490630,
+    "container_bitrate_bps": 1623688,
+    "audio_sample_rate": 48000,
+    "audio_channels": 2,
+    "audio_bitrate_bps": 126334
+  },
+  "input_bytes": 25857237,
+  "output_bytes": 186448522,
+  "size_ratio_output_over_input": 7.210690067156054,
+  "size_change_percent": 621.0690067156054,
+  "wall_seconds": 24.410485800006427,
+  "verified": true,
+  "encode_peak_memory_bytes": 154005504,
+  "output_bitrate_bps": 11707913.469387755,
+  "system": {
+    "cpu_model": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "gpu_models": [
+      "OrayIddDriver Device",
+      "NVIDIA GeForce RTX 4060 Ti"
+    ]
+  },
+  "frames": 3822,
+  "duration_seconds": 127.4,
+  "encoder_elapsed_seconds": 24.162,
+  "avg_fps": 158.18,
+  "decode_fps": 856.518,
+  "decode_peak_memory_bytes": 14548992,
+  "psnr_db": 45.355968,
+  "ssim": 0.984213,
+  "reference_file": "Test A.ghv",
+  "frame_metadata_and_reconstruction_crc_match": true,
+  "payloads": {
+    "GIC9": 108,
+    "GBP9": 3493
+  },
+  "raw_yuv_sha256": "e6a78c57247c3ebb53b87e6e42e4e21282227dffa0e53e7951de27fde6de31d3"
+}

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Experimental GHVC9 compact coding
+
+- The development encoder accepts `--compact-motion --compact-coefficients`.
+  Compact keyframes retain the GTC7 predictor map and encode coefficients as
+  bits. P frames can omit the unused zero level and use a shorter code for
+  large Rice quotients. These options require updated native decoders.
+- Full Test A with Balanced q78 and GHAC1 HQ now occupies 177.811 MiB. Its
+  decoded YUV SHA-256 matches the original 210.616 MiB M1 file.
+
 ### Repository
 
 - Renamed public codec branches from internal tool-prefixed names to

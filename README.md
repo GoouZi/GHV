@@ -58,7 +58,12 @@ predictor-ranked RD shortlist and independently decodable coefficient chunks
 with capped-unary runs and signed Rice coding. See
 [`docs/specs/ghv/0.9.md`](docs/specs/ghv/0.9.md).
 
-## Latest verified benchmark
+On the development branch, add `--compact-motion --compact-coefficients` to
+the Balanced GHVC9 encode command to use experimental compact coding. Full
+Test A is **177.811 MiB** with byte-identical decoded YUV. Reading the new
+syntax requires the updated native decoder.
+
+## Milestone 1 benchmark
 
 All rows below come from the same authoritative GHVC9 Milestone 1 suite:
 Balanced preset, q78, GHAC1 HQ audio, complete native CRC verification, and

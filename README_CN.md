@@ -34,7 +34,10 @@ GHVC/GHAC 是本项目自己的 codec。FFmpeg 只用于转换工具读取输入
 编码或解码 GHVC/GHAC。版本唯一来源是 [`VERSION.json`](VERSION.json)，也可以运行
 `ghvversion` 查看。
 
-## 最新验证 Benchmark
+开发分支可用 `ghvenc input.mp4 output.ghv --codec 9 --preset balanced --compact-motion --compact-coefficients`
+启用实验压缩。完整 Test A 为 **177.811 MiB**，解码像素与 M1 逐字节一致。读取实验文件需要配套的新版原生解码器。
+
+## Milestone 1 基准
 
 以下数据全部来自同一套 GHVC9 Milestone 1 测试：Balanced q78、GHAC1 HQ、完整
 native CRC、完整 PSNR/SSIM。机器为 Windows 11、Intel64 Family 6 Model 183、

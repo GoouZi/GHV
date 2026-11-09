@@ -4,9 +4,37 @@
 
 int main() {
     try {
+        for(int k : {1,2,3,4}) {
+            std::vector<uint8_t> bytes;
+            ghvc9::BitWriter writer(bytes);
+            const uint32_t levels[]={1,2,3u<<k,4u<<k,(4u<<k)+1,(5u<<k)+1,
+                                     (7u<<k)+1,127,1024,1u<<20};
+            for(uint32_t level:levels) ghvc9::write_compact_level(writer,level,k);
+            writer.finish();
+            ghvc9::BitReader reader(bytes,0);
+            for(uint32_t level:levels)
+                if(ghvc9::read_compact_level(reader,k)!=level)
+                    throw std::runtime_error("compact level boundary mismatch");
+        }
         // Ten macroblocks exercise a partial final mask. All vectors and
         // residuals are zero, so both groups require only one mask byte.
         std::vector<uint8_t> flat(80*32*3/2,128), expected, decoded_flat;
+        {
+            auto image=flat;
+            for(size_t i=0;i<image.size();++i) image[i]=uint8_t((i/8+i%19)%256);
+            const auto reference=ghvc7::encode(image,nullptr,80,32,78,true,expected);
+            auto compact=reference;
+            ghvc9::compact_intra(compact);
+            if(compact.size()>=reference.size() || ghvc9::expand_intra(compact,80,32,image.size())!=reference)
+                throw std::runtime_error("intra coefficient round trip failed");
+            ghvc9::decode(compact,nullptr,80,32,0,image.size(),decoded_flat);
+            if(decoded_flat!=expected) throw std::runtime_error("compact intra pixels differ");
+            compact.push_back(0);
+            bool rejected=false;
+            try { ghvc9::expand_intra(compact,80,32,image.size()); }
+            catch(const std::runtime_error&) { rejected=true; }
+            if(!rejected) throw std::runtime_error("trailing intra byte accepted");
+        }
         auto raw=ghvc8::encode(flat,flat,80,32,78,0,expected);
         // Build a block sequence whose first chunk contains both large DC
         // values and small AC values, including an AC with no preceding DC.
@@ -24,8 +52,8 @@ int main() {
             }
             const auto original=ghvc9::bit_pack(coeff_source,80,32);
             auto encoded=ghvc9::bit_pack(coeff_source,80,32,true);
-            if(encoded[7]!=6 || encoded.size()>=original.size())
-                throw std::runtime_error("expected both coefficient flags and a smaller packet");
+            if((encoded[7]&10)!=10 || encoded.size()>=original.size())
+                throw std::runtime_error("expected compact coefficients and a smaller packet");
             std::vector<uint8_t> reference, result;
             ghvc9::decode(original,&flat,80,32,1,flat.size(),reference);
             for(int motion=0;motion<2;++motion) {

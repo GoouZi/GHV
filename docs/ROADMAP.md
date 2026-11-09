@@ -71,10 +71,16 @@ These are deliberately paused until compression and bitstream structure mature:
 - VLC, PotPlayer, mobile, and other ecosystem integrations;
 - stable public C encoder ABI.
 
-## Next — GHVC9 Milestone 2
+## In progress — GHVC9 Milestone 2
 
 Primary objective: push Test A below 180 MiB without losing current visual
 quality, faster-than-GHVC8 encoding, or 2x-realtime 4K24 decode.
+
+The November 9 compact profile reaches **177.811 MiB** on full Test A and
+**52.478 fps** verified decode on full 4K24 Test C. A's reconstructed YUV
+matches M1 byte for byte. C encoded at 10.427 fps against the historical
+GHVC8 perf2 result of 10.464 fps. The speed gate still needs a reproducible
+win on C. See the [compact profile report](../benchmarks/milestones/ghvc9/GHVC9_COMPACT_2026-11-09.md).
 
 Implemented foundations and continuing research:
 

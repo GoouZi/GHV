@@ -346,7 +346,9 @@ int main(int argc,char** argv){
             }
         }else{
             type=0;iframes++;
-            if(codec>=7){auto intra_t0=std::chrono::steady_clock::now();packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);intra_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-intra_t0).count());}
+            if(codec>=7){auto intra_t0=std::chrono::steady_clock::now();packed=ghvc7::encode(frame,nullptr,w,h,quality,true,recon,&zero_blocks);
+                if(codec==9 && compact_coefficients) ghvc9::compact_intra(packed);
+                intra_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-intra_t0).count());}
             else {intra_residual(frame,res,w,h);packed=bitpack6(res,false);recon=frame;}
         }
         if(type!=2&&codec==6)packed=zrun_wrap(packed);
