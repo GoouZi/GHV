@@ -4,6 +4,24 @@
 
 int main() {
     try {
+        // Ten macroblocks exercise a partial final mask. All vectors and
+        // residuals are zero, so both groups require only one mask byte.
+        std::vector<uint8_t> flat(80*32*3/2,128), expected, decoded_flat;
+        auto raw=ghvc8::encode(flat,flat,80,32,78,0,expected);
+        auto packet=ghvc9::bit_pack(raw,80,32);
+        ghvc9::compact_motion(packet);
+        if (packet[7]!=1 || ghvc7::le32(packet.data()+20)!=2)
+            throw std::runtime_error("expected two compact motion masks");
+        ghvc9::decode(packet,&flat,80,32,1,flat.size(),decoded_flat);
+        if (decoded_flat!=flat) throw std::runtime_error("compact motion mismatch");
+        for (uint8_t invalid_mask : {4,1}) {
+            auto invalid=packet;
+            invalid[25]=invalid_mask; // padding bit or literal beyond the body
+            bool rejected=false;
+            try { ghvc9::decode(invalid,&flat,80,32,1,flat.size(),decoded_flat); }
+            catch (const std::runtime_error&) { rejected=true; }
+            if (!rejected) throw std::runtime_error("invalid compact motion accepted");
+        }
         // More than eight distinct motion candidates exposed the old zero-limit
         // overflow. Odd macroblock edges also exercise partial luma/chroma blocks.
         for (int width : {32, 34}) {

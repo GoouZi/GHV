@@ -4,6 +4,14 @@ Last updated: 2026-11-09
 
 ## Latest continuation — 2026-11-09
 
+The opt-in `--compact-motion` experiment now reduces full Test A from
+210.616 to 202.881 MiB and full Test B from 405.317 to 383.846 MiB.
+All 3,822 reconstructed CRCs and timestamps on A match the M1 baseline.
+The flag selects the experimental GBP9 motion representation documented in
+the [0.9 specification](../specs/ghv/0.9.md). Older decoders require files
+encoded with the default M1 syntax. Full 4K playback acceptance and the
+under-180 MiB Test A target remain open.
+
 Milestone 2 has started but is not complete. Accepted changes bound the shared
 motion shortlist for a zero nonzero-candidate budget, add native regression
 coverage, and fix Windows newline-only version-test failures. Full Test A is

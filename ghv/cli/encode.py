@@ -160,7 +160,7 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
                                quality: int, keyint: int, scene_threshold: float,
                                motion_range: int, est_frames: int, fps_num: int,
                                fps_den: int, threads: int = 0, codec: int = 7,
-                               profile: bool = False, rd_finalists: int = 2) -> int:
+                               profile: bool = False, rd_finalists: int = 2, compact_motion: bool = False) -> int:
     """Native core writes VFRM + INDX + header itself.
 
     Python never receives packed video frames, which removes one full copy and
@@ -175,6 +175,8 @@ def encode_video_native_direct(video_cmd, native_core: str, out_path: Path, w: i
            str(est_frames), '--ghv', str(fps_num), str(fps_den), '--codec', str(codec)]
     if codec == 9:
         cmd += ['--rd-finalists', str(rd_finalists)]
+    if compact_motion:
+        cmd.append('--compact-motion')
     if profile:
         cmd.append('--profile')
     env = os.environ.copy()
@@ -232,6 +234,7 @@ def main():
     ap.add_argument('--audio-quality', choices=['hq', 'compact'], default='hq')
     ap.add_argument('--native', choices=['auto', 'on', 'off'], default='auto')
     ap.add_argument('--threads', type=int, default=0, help='native encoder threads; 0 = automatic')
+    ap.add_argument('--compact-motion', action='store_true', help='experimental GHVC9 motion syntax; requires updated decoder')
     ap.add_argument('--profile', action='store_true', help='print native per-stage timing')
     ap.add_argument('--codec', type=int, choices=[6, 7, 8, 9], default=9, help='video codec version (default: GHVC9)')
     ap.add_argument('--no-audio', action='store_true')
@@ -239,6 +242,8 @@ def main():
     ap.add_argument('--ffmpeg')
     ap.add_argument('--ffprobe')
     args = ap.parse_args()
+    if args.compact_motion and args.codec != 9:
+        ap.error('--compact-motion requires --codec 9')
 
     pp = PRESETS[args.preset]
     quality = max(1, min(100, args.quality if args.quality is not None else pp['quality']))
@@ -310,7 +315,7 @@ def main():
             frame_count = encode_video_native_direct(
                 video_cmd, native_core, out_path, w, h, quality, keyint,
                 scene_threshold, motion_range, est_frames, fps_num, fps_den,
-                max(0, args.threads), args.codec, args.profile, rd_finalists)
+                max(0, args.threads), args.codec, args.profile, rd_finalists, args.compact_motion)
             with open(out_path, 'r+b') as f:
                 base_header = read_header(f)
                 # The native encoder has already written the complete video

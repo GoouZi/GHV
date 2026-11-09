@@ -265,12 +265,13 @@ int main(int argc,char** argv){
     int motion_range=std::clamp(std::stoi(argv[6]),0,31);
     std::string outpath=argv[7];
     uint64_t expected=std::stoull(argv[8]);
-    bool ghv_mode=false,profile_enabled=false;int codec=6,rd_finalists=2;
+    bool compact_motion=false,ghv_mode=false,profile_enabled=false;int codec=6,rd_finalists=2;
     uint32_t fps_num=30,fps_den=1;
     for(int ai=9;ai<argc;ai++){
         std::string a=argv[ai];
         if(a=="--ghv"&&ai+2<argc){ghv_mode=true;fps_num=uint32_t(std::stoul(argv[++ai]));fps_den=uint32_t(std::stoul(argv[++ai]));}
         else if(a=="--codec"&&ai+1<argc)codec=std::stoi(argv[++ai]);
+        else if(a=="--compact-motion")compact_motion=true;
         else if(a=="--rd-finalists"&&ai+1<argc)rd_finalists=std::clamp(std::stoi(argv[++ai]),0,7);
         else if(a=="--profile")profile_enabled=true;
         else {std::cerr<<"invalid option: "<<a<<"\n";return 2;}
@@ -321,7 +322,7 @@ int main(int argc,char** argv){
         }else if(!force_i&&sc<scene_threshold){
             type=1;pframes++;
             if(codec==9){
-                auto codec_t0=std::chrono::steady_clock::now();packed=ghvc9::encode(frame,prev,w,h,quality,motion_range,recon,&zero_blocks,&mv_nonzero,profile_enabled?&codec_profile:nullptr,rd_finalists);
+                auto codec_t0=std::chrono::steady_clock::now();packed=ghvc9::encode(frame,prev,w,h,quality,motion_range,recon,&zero_blocks,&mv_nonzero,profile_enabled?&codec_profile:nullptr,rd_finalists,compact_motion);
                 codec_ns+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-codec_t0).count());
                 mv_total+=uint64_t((w+15)/16)*uint64_t((h+15)/16);
             }else if(codec==8){

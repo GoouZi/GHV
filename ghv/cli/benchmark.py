@@ -128,10 +128,13 @@ def main():
     ap.add_argument('--quality-metrics',action='store_true',help='measure full-file PSNR and SSIM')
     ap.add_argument('--report-json',help='also save the structured report to this path')
     ap.add_argument('--playback-runs',type=int,default=0,help='run controlled full playback N times and include telemetry')
+    ap.add_argument('--compact-motion', action='store_true', help='experimental GHVC9 motion syntax; requires updated decoder')
     ap.add_argument('--profile',action='store_true',help='include native encode/decode stage timings')
     ap.add_argument('--keep', action='store_true', help='keep auto-created output')
     ap.add_argument('--json', action='store_true')
     args = ap.parse_args()
+    if args.compact_motion and args.codec != 9:
+        ap.error('--compact-motion requires --codec 9')
 
     src = Path(args.input).resolve()
     if not src.is_file():
@@ -148,6 +151,8 @@ def main():
            '--audio-quality', args.audio_quality, '--codec', str(args.codec)]
     if args.threads > 0:
         cmd += ['--threads', str(args.threads)]
+    if args.compact_motion:
+        cmd.append('--compact-motion')
     if args.profile:
         cmd.append('--profile')
 
@@ -179,7 +184,7 @@ def main():
     in_size = src.stat().st_size; out_size = out.stat().st_size;h,actual_codec=inspect_output(out)
     report = {
         'input': str(src), 'output': str(out), 'preset': args.preset, 'codec': args.codec,
-        'actual_codec': actual_codec, 'source': probe_source(src),
+        'actual_codec': actual_codec, 'compact_motion': args.compact_motion, 'source': probe_source(src),
         'input_bytes': in_size, 'output_bytes': out_size,
         'size_ratio_output_over_input': (out_size / in_size) if in_size else None,
         'size_change_percent': ((out_size / in_size - 1.0) * 100.0) if in_size else None,

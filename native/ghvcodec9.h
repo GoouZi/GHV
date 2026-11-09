@@ -132,6 +132,40 @@ inline std::vector<uint8_t> dc_unpack(const std::vector<uint8_t>& in,int w,int h
     return out;
 }
 
+// Motion deltas emitted by the M1 encoder fit one byte per component.
+inline void compact_motion(std::vector<uint8_t>& packet) {
+    const uint32_t count = ghvc7::le32(packet.data()+16);
+    const uint32_t old_size = ghvc7::le32(packet.data()+20);
+    const size_t end = 24 + size_t(old_size);
+    std::vector<uint8_t> body;
+    body.reserve(old_size);
+    size_t pos = 24;
+    for (uint32_t first=0; first<count; first+=8) {
+        const size_t mask_pos = body.size();
+        body.push_back(0);
+        for (unsigned bit=0; bit<8 && first+bit<count; ++bit) {
+            if (pos>=end) throw std::logic_error("missing encoder motion token");
+            const uint8_t token = packet[pos++];
+            if (!token) continue;
+            if (token!=1 || end-pos<2) throw std::logic_error("invalid encoder motion token");
+            body[mask_pos] |= uint8_t(1u<<bit);
+            const unsigned x=packet[pos++], y=packet[pos++];
+            if (x<15 && y<15) body.push_back(uint8_t(x | (y<<4)));
+            else {
+                body.push_back(255);
+                body.push_back(uint8_t(x));
+                body.push_back(uint8_t(y));
+            }
+        }
+    }
+    if (pos!=end) throw std::logic_error("encoder motion size mismatch");
+    if (body.size()>=old_size) return;
+    packet[7]=1;
+    for (unsigned i=0; i<4; ++i) packet[20+i]=uint8_t(body.size()>>(8*i));
+    std::copy(body.begin(),body.end(),packet.begin()+24);
+    packet.erase(packet.begin()+24+body.size(),packet.begin()+end);
+}
+
 inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h) {
     if(raw.size()<24)throw std::runtime_error("short GHVC9 bit source");
     const uint32_t blocks=ghvc7::le32(raw.data()+12),mvbytes=ghvc7::le32(raw.data()+20);
@@ -176,7 +210,7 @@ inline std::vector<uint8_t> bit_unpack(const std::vector<uint8_t>& in,int w,int 
 
 inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t>& prev,int w,int h,
                         size_t expected,std::vector<uint8_t>& recon,Profile* profile) {
-    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]!=0)
+    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]>1)
         throw std::runtime_error("bad GHVC9 bit payload");
     const int quality=in[5];const uint32_t raw=ghvc7::le32(in.data()+8),blocks=ghvc7::le32(in.data()+12),mvc=ghvc7::le32(in.data()+16),mvbytes=ghvc7::le32(in.data()+20);
     ghvc8::QuantTables qt(quality);const int nx=(w+15)/16,ny=(h+15)/16;
@@ -184,9 +218,34 @@ inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t
         throw std::runtime_error("invalid GHVC9 bit header");
     size_t p=24,mvend=p+mvbytes;static thread_local std::vector<ghvc8::MV> mv_scratch;if(mv_scratch.size()<mvc)mv_scratch.resize(mvc);auto& mvs=mv_scratch;
     auto motion_t0=ghvc8::ProfileClock::now();
+    uint8_t mask=0;
     for(int my=0;my<ny;my++)for(int mx=0;mx<nx;mx++){
-        const ghvc8::MV pred=ghvc8::predictor(mvs,mx,my,nx);if(p>=mvend)throw std::runtime_error("truncated GHVC9 motion");const uint8_t tok=in[p++];int dx=0,dy=0;
-        if(tok==1){dx=ghvc7::unzig(ghvc7::get_var(in,p));dy=ghvc7::unzig(ghvc7::get_var(in,p));}else if(tok)throw std::runtime_error("bad GHVC9 motion token");
+        const ghvc8::MV pred=ghvc8::predictor(mvs,mx,my,nx);
+        int dx=0,dy=0;
+        if (in[7]==1) {
+            const unsigned index=unsigned(my*nx+mx), bit=index%8;
+            if (!bit) {
+                if (p>=mvend) throw std::runtime_error("missing motion mask");
+                mask=in[p++];
+                if (mvc-index<8 && (mask>>(mvc-index))) throw std::runtime_error("bad motion mask padding");
+            }
+            if (mask & (1u<<bit)) {
+                if (p>=mvend) throw std::runtime_error("missing motion literal");
+                const unsigned pair=in[p++];
+                unsigned x=pair&15, y=pair>>4;
+                if (pair==255) {
+                    if (mvend-p<2) throw std::runtime_error("short motion escape");
+                    x=in[p++]; y=in[p++];
+                    if (x>48 || y>48 || (x<15 && y<15)) throw std::runtime_error("invalid motion escape");
+                } else if (x==15 || y==15) throw std::runtime_error("reserved motion literal");
+                dx=ghvc7::unzig(x); dy=ghvc7::unzig(y);
+            }
+        } else {
+            if(p>=mvend)throw std::runtime_error("truncated GHVC9 motion");
+            const uint8_t tok=in[p++];
+            if(tok==1){dx=ghvc7::unzig(ghvc7::get_var(in,p));dy=ghvc7::unzig(ghvc7::get_var(in,p));}
+            else if(tok)throw std::runtime_error("bad GHVC9 motion token");
+        }
         if(p>mvend)throw std::runtime_error("bad GHVC9 motion size");const int vx=int(pred.x)+dx,vy=int(pred.y)+dy;
         if(vx<-12||vx>12||vy<-12||vy>12||(vx&1)||(vy&1))throw std::runtime_error("bad GHVC9 vector");mvs[size_t(my)*nx+mx]={int8_t(vx),int8_t(vy)};
     }
@@ -268,9 +327,10 @@ inline std::vector<uint8_t> packbits(const std::vector<uint8_t>& raw) {
     return out;
 }
 
-inline std::vector<uint8_t> pack(const std::vector<uint8_t>& raw,int w,int h) {
+inline std::vector<uint8_t> pack(const std::vector<uint8_t>& raw,int w,int h,bool compact=false) {
     std::vector<uint8_t> plain=raw;std::copy(PMAGIC,PMAGIC+4,plain.begin());
     std::vector<uint8_t> bits=bit_pack(raw,w,h);
+    if (compact) compact_motion(bits);
     return bits.size()<plain.size()?std::move(bits):std::move(plain);
 }
 
@@ -308,10 +368,10 @@ inline std::vector<uint8_t> unpack(const std::vector<uint8_t>& in,size_t expecte
 inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::vector<uint8_t>& prev,
                                    int w,int h,int quality,int range,std::vector<uint8_t>& recon,
                                    uint64_t* zero_blocks=nullptr,uint64_t* nonzero_mv=nullptr,
-                                   Profile* profile=nullptr,int nonzero_finalists=2) {
+                                   Profile* profile=nullptr,int nonzero_finalists=2,bool compact=false) {
     auto raw=ghvc8::encode(frame,prev,w,h,quality,range,recon,zero_blocks,nonzero_mv,
                            profile,nonzero_finalists);
-    return pack(raw,w,h);
+    return pack(raw,w,h,compact);
 }
 
 inline void decode(const std::vector<uint8_t>& in,const std::vector<uint8_t>* prev,int w,int h,
