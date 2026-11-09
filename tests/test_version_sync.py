@@ -22,11 +22,11 @@ def main() -> None:
     assert CURRENT_GHVC == data["current_ghvc_encoder"]
     assert CURRENT_GHAC == data["current_ghac_encoder"]
     assert PACKAGE_VERSION == pep440_version(data["project_version"])
-    before = (ROOT / "native" / "ghv_version.h").read_bytes()
-    python_before = (ROOT / "ghv" / "_version_generated.py").read_bytes()
+    before = (ROOT / "native" / "ghv_version.h").read_text(encoding="utf-8")
+    python_before = (ROOT / "ghv" / "_version_generated.py").read_text(encoding="utf-8")
     subprocess.run([sys.executable, str(ROOT / "tools" / "generate_version_header.py")], check=True)
-    after = (ROOT / "native" / "ghv_version.h").read_bytes()
-    python_after = (ROOT / "ghv" / "_version_generated.py").read_bytes()
+    after = (ROOT / "native" / "ghv_version.h").read_text(encoding="utf-8")
+    python_after = (ROOT / "ghv" / "_version_generated.py").read_text(encoding="utf-8")
     assert before == after, "native/ghv_version.h was stale; regenerated it"
     assert python_before == python_after, "ghv/_version_generated.py was stale; regenerated it"
     print(f"[PASS] version source: {PROJECT_VERSION} {PROJECT_STATUS}, GHVC{CURRENT_GHVC}, GHAC{CURRENT_GHAC}")

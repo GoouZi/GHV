@@ -1,6 +1,16 @@
 # GHV / GHA Project State
 
-Last updated: 2026-09-16
+Last updated: 2026-11-09
+
+## Latest continuation — 2026-11-09
+
+Milestone 2 has started but is not complete. Accepted changes bound the shared
+motion shortlist for a zero nonzero-candidate budget, add native regression
+coverage, and fix Windows newline-only version-test failures. Full Test A is
+SHA-identical to Milestone 1; GHVC4–9 self-tests and libghv seek/audio pass.
+The isolated Rice-aware RD rate experiment increased A10 size by 0.494% and was
+rejected. See [continuation report](../../benchmarks/milestones/ghvc9/GHVC9_M2_START_2026-11-09.md).
+Version and latest authoritative milestone remain 0.9.0-beta.1 / GHVC9 M1.
 
 This is the handoff file for a future ChatGPT/Codex session or human contributor.
 

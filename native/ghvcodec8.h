@@ -180,7 +180,9 @@ inline std::vector<uint8_t> encode(const std::vector<uint8_t>& frame,const std::
         for(size_t i=0;i<candidate_count;i++)scored[i]={sampled_sad(frame,prev,w,h,x0,y0,candidates[i].x,candidates[i].y),candidates[i]};
         std::sort(scored.begin(),scored.begin()+candidate_count,[](const auto& a,const auto& b){return a.first<b.first;});
         std::array<MV,8> finalists{};size_t finalist_count=1;
-        for(size_t i=0;i<candidate_count;i++){const auto& sv=scored[i];if(sv.second.x==0&&sv.second.y==0)continue;finalists[finalist_count++]=sv.second;if(finalist_count==size_t(nonzero_finalists+1))break;}
+        // Reserve slot zero for zero motion, including when the nonzero budget
+        // is zero. Check before appending to keep the fixed array bounded.
+        for(size_t i=0;i<candidate_count&&finalist_count<size_t(nonzero_finalists+1);i++){const auto& sv=scored[i];if(sv.second.x==0&&sv.second.y==0)continue;finalists[finalist_count++]=sv.second;}
         auto motion_t1=ProfileClock::now();
         if(profile)profile->motion_search_ns.fetch_add(profile_ns(motion_t0,motion_t1),std::memory_order_relaxed);
         auto rd_t0=ProfileClock::now();

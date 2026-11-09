@@ -26,6 +26,7 @@ CMakeFiles/
 CMakeCache.txt
 native/bin/
 native/build/
+native/build_*/
 *.obj
 *.o
 *.pdb
