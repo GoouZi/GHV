@@ -4,6 +4,16 @@
 
 int main() {
     try {
+        {
+            std::vector<uint8_t> stream;
+            ghvc9::BitWriter writer(stream);
+            for(const auto code:ghvc9::compact_run_codes()) writer.put(code.word,code.length);
+            writer.finish();
+            ghvc9::BitReader reader(stream,0);
+            for(unsigned run=0;run<64;++run)
+                if(ghvc9::read_compact_run(reader)!=run)
+                    throw std::runtime_error("compact zero run round trip failed");
+        }
         for(int k : {1,2,3,4}) {
             std::vector<uint8_t> bytes;
             ghvc9::BitWriter writer(bytes);

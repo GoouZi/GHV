@@ -64,6 +64,34 @@ inline int tail_width(uint32_t n) {
     return width;
 }
 
+struct RunCode { uint16_t word; uint8_t length; };
+
+inline const std::array<RunCode,64>& compact_run_codes() {
+    static const auto table=[] {
+        std::array<RunCode,64> codes{};
+        for(unsigned run=0;run<codes.size();++run) {
+            if(run<3) codes[run]={uint16_t(1u<<run),uint8_t(run+1)};
+            else {
+                const unsigned n=run-2;
+                const unsigned width=tail_width(n);
+                const unsigned bits=(1u<<(3+width)) | ((n-(1u<<width))<<(4+width));
+                codes[run]={uint16_t(bits),uint8_t(4+2*width)};
+            }
+        }
+        return codes;
+    }();
+    return table;
+}
+
+inline unsigned read_compact_run(BitReader& reader) {
+    unsigned run=0;
+    while(run<3 && !reader.get(1)) ++run;
+    if(run<3) return run;
+    const unsigned width=reader.unary31();
+    if(width>5) throw std::runtime_error("invalid compact run width");
+    return 2+(1u<<width)+reader.get(width);
+}
+
 inline int compact_level_cost(uint32_t level,int k) {
     const uint32_t q=(level-1)>>k;
     return q<4 ? int(q)+1+k : 5+2*tail_width(q-3)+k;
@@ -276,7 +304,7 @@ inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h
     const uint32_t blocks=ghvc7::le32(raw.data()+12),mvbytes=ghvc7::le32(raw.data()+20);
     const size_t desc_start=24+size_t(mvbytes),desc_bytes=(size_t(blocks)+7)/8;
     if(desc_start+desc_bytes>raw.size()||blocks!=ghvc7::block_count(w,h))throw std::runtime_error("invalid GHVC9 bit source");
-    int64_t dc_blocks=0, nonzero_blocks=0, context_savings=0;
+    int64_t dc_blocks=0, nonzero_blocks=0, context_savings=0, run_savings=0;
     std::vector<size_t> offsets(size_t(blocks)+1);size_t p=desc_start+desc_bytes;
     for(uint32_t bi=0;bi<blocks;bi++){
         offsets[bi]=p;if((raw[desc_start+(bi>>3)]>>(bi&7))&1)continue;
@@ -285,6 +313,7 @@ inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h
         if(last==0) ++dc_blocks;
         while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,p,run,level);if(!level||run>uint32_t(last-pos))throw std::runtime_error("bad GHVC9 bit level");if(compact_coefficients) {
                 const int k=(pos==0 && run==0)?3:1;
+                run_savings+=int(run<7 ? run+1 : 14)-compact_run_codes()[run].length;
                 context_savings+=compact_level_cost(level,2)-compact_level_cost(level,k);
             }
             pos+=int(run)+1;}
@@ -294,6 +323,7 @@ inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h
     // A DC-only end position costs one bit instead of six. Other positions
     // cost seven. Allow for up to seven extra padding bits per chunk.
     const bool context_levels=compact_coefficients && context_savings>7*int64_t(chunks);
+    const bool short_runs=compact_coefficients && run_savings>7*int64_t(chunks);
     const bool short_dc=compact_coefficients && 6*dc_blocks-nonzero_blocks>7*int64_t(chunks);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if(chunks>4)
@@ -304,7 +334,10 @@ inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h
             size_t q=offsets[bi];const int last=raw[q++];if(short_dc) bw.put(last!=0,1);
             if(!short_dc || last!=0) bw.put(uint32_t(last),6);
             int pos=0;
-            while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,q,run,level);put_run_bits(bw,run);const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;
+            while(pos<=last){uint32_t run=0,level=0;ghvc8::get_level(raw,q,run,level);
+                if(short_runs) { const auto code=compact_run_codes()[run]; bw.put(code.word,code.length); }
+                else put_run_bits(bw,run);
+                const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;
                 if(compact_coefficients) write_compact_level(bw,level,k);
                 else put_level_bits(bw,level,k);pos+=int(run)+1;}
             if(q!=offsets[bi+1])throw std::runtime_error("GHVC9 block offset mismatch");
@@ -314,6 +347,7 @@ inline std::vector<uint8_t> bit_pack(const std::vector<uint8_t>& raw,int w,int h
     std::vector<uint8_t> out(raw.begin(),raw.begin()+desc_start+desc_bytes);std::copy(BMAGIC,BMAGIC+4,out.begin());if(short_dc) out[7]|=2;
     if(context_levels) out[7]|=4;
     if(compact_coefficients) out[7]|=8;
+    if(short_runs) out[7]|=16;
     put32(out,chunks);
     for(const auto& chunk:encoded)put32(out,uint32_t(chunk.size()));for(const auto& chunk:encoded)out.insert(out.end(),chunk.begin(),chunk.end());return out;
 }
@@ -333,7 +367,7 @@ inline std::vector<uint8_t> bit_unpack(const std::vector<uint8_t>& in,int w,int 
 
 inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t>& prev,int w,int h,
                         size_t expected,std::vector<uint8_t>& recon,Profile* profile) {
-    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]>15)
+    if(in.size()<24||!std::equal(BMAGIC,BMAGIC+4,in.begin())||in[4]!=16||in[7]>31)
         throw std::runtime_error("bad GHVC9 bit payload");
     const int quality=in[5];const uint32_t raw=ghvc7::le32(in.data()+8),blocks=ghvc7::le32(in.data()+12),mvc=ghvc7::le32(in.data()+16),mvbytes=ghvc7::le32(in.data()+20);
     ghvc8::QuantTables qt(quality);const int nx=(w+15)/16,ny=(h+15)/16;
@@ -396,8 +430,8 @@ inline void decode_bits(const std::vector<uint8_t>& in,const std::vector<uint8_t
             for(uint32_t bi=first;bi<block_end;bi++){
                 auto& c=cv[bi];if(c.last>=0)for(int old=0;old<=c.last;old++)c.q[ghvc7::ZIGZAG[old]]=0;c.mode=0;c.last=-1;
                 const bool zero=(in[desc_start+(bi>>3)]>>(bi&7))&1;
-                if(!zero){c.last=(in[7]&2) && !br.get(1) ? 0 : int(br.get(6));int pos=0;while(pos<=c.last){uint32_t run=0,level=0;uint16_t word=0;const FastToken* ft=nullptr;if(br.peek16(word))ft=&(pos==0?first_tokens:ac_tokens)[word];
-                        if(ft&&ft->bits){run=ft->run;level=ft->level;br.drop(ft->bits);}else{run=get_run_bits(br);const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;level=bias ? read_compact_level(br,k) : get_level_bits(br,k);}
+                if(!zero){c.last=(in[7]&2) && !br.get(1) ? 0 : int(br.get(6));int pos=0;while(pos<=c.last){uint32_t run=0,level=0;uint16_t word=0;const FastToken* ft=nullptr;if(br.peek16(word) && (!(in[7]&16) || (word&7)))ft=&(pos==0?first_tokens:ac_tokens)[word];
+                        if(ft&&ft->bits){run=ft->run;level=ft->level;br.drop(ft->bits);}else{run=(in[7]&16)?read_compact_run(br):get_run_bits(br);const int k=context_levels ? ((pos==0 && run==0)?3:1) : LEVEL_RICE_K;level=bias ? read_compact_level(br,k) : get_level_bits(br,k);}
                         if(run>uint32_t(c.last-pos))throw std::runtime_error("bad run");pos+=int(run);c.q[ghvc7::ZIGZAG[pos]]=ghvc7::unzig(level);pos++;}}
             }
             if(br.p!=chunk_start[size_t(ci)]+chunk_size[size_t(ci)])throw std::runtime_error("trailing chunk");
