@@ -81,7 +81,7 @@ def inspect_output(path: Path):
 
 def measure_decode(path: Path,frames: int,profile: bool = False):
     dec=native_binary('ghvdecode')
-    if not dec.is_file():return None
+    if not dec.is_file():return None,None,None
     h,_=inspect_output(path);n=h.frame_count if frames==0 else max(1,min(h.frame_count,frames))
     cmd=[str(dec),str(path),'--no-output','--verify','--frames',str(n)]
     if profile:cmd.append('--profile')
@@ -111,7 +111,7 @@ def measure_quality(source: Path,path: Path):
     txt=err.decode('utf-8','replace')
     pm=re.search(r'PSNR y:[^\r\n]* average:([0-9.]+|inf)',txt)
     sm=re.search(r'SSIM Y:[^\r\n]* All:([0-9.]+)',txt)
-    return {'psnr_db':float(pm.group(1)) if pm and pm.group(1)!='inf' else None,
+    return {'psnr_db':('inf' if pm.group(1)=='inf' else float(pm.group(1))) if pm else None,
             'ssim':float(sm.group(1)) if sm else None}
 
 
@@ -227,7 +227,8 @@ def main():
         if encode_peak: print(f'Encode peak memory: {encode_peak/(1024*1024):.1f} MiB')
         if report['decode_fps'] is not None: print(f'Decode: {report["decode_fps"]:.2f} FPS')
         if report['decode_peak_memory_bytes']: print(f'Decode peak memory: {report["decode_peak_memory_bytes"]/(1024*1024):.1f} MiB')
-        if 'psnr_db' in report: print(f'Quality: PSNR {report["psnr_db"]:.3f} dB | SSIM {report["ssim"]:.6f}')
+        if report.get('psnr_db') is not None and report.get('ssim') is not None:
+            print(f'Quality: PSNR {float(report["psnr_db"]):.3f} dB | SSIM {report["ssim"]:.6f}')
         print(f'Verify: {"PASS" if verified else "FAIL"}')
         if args.report_json: print(f'JSON  : {Path(args.report_json).resolve()}')
         if not verified: print(verify.stdout)
