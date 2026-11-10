@@ -80,6 +80,15 @@ def run():
             meta[proj+'_release_compile']=[ET.tostring(n,encoding='unicode') for group in tree.findall('.//{*}ItemDefinitionGroup')
                     if 'Release|' in group.get('Condition','') for n in group.findall('{*}ClCompile')]
             meta['platform_toolset']=[n.text for n in tree.findall('.//{*}PlatformToolset')][0]
+    # Single-config Makefile generators store target-specific flags here.
+    for target in ('ghvcore', 'ghvdecode'):
+        flags = build / 'CMakeFiles' / (target + '.dir') / 'flags.make'
+        if flags.is_file():
+            meta[target + '_target_flags'] = flags.read_text(encoding='utf8').splitlines()
+    database = build / 'compile_commands.json'
+    if database.is_file():
+        meta['compile_commands'] = [entry for entry in json.loads(database.read_bytes())
+                                    if Path(entry['file']).name in ('ghvcore.cpp', 'ghvdecode.cpp')]
     compiler = sorted(build.glob('CMakeFiles/*/CMakeCXXCompiler.cmake'))
     if compiler:
         meta['compiler']=[x for x in compiler[-1].read_text(encoding='utf8').splitlines()
@@ -112,6 +121,9 @@ def run():
                 if proc.wait(): raise RuntimeError('YUV decode failed')
                 cpu=decode_cpu_seconds(proc)
             elapsed=time.perf_counter()-start
+            r['encoded_header'] = dict(width=h.width, height=h.height, fps_num=h.fps_num, fps_den=h.fps_den,
+                                       quality=h.quality, keyint=h.keyint, audio_rate=h.audio_rate,
+                                       audio_channels=h.audio_channels)
             r.update(source_sha256=source_sha, output_sha256=sha(output), yuv_sha256=yuv,
                      yuv_pipe_and_hash_seconds=elapsed, yuv_decode_cpu_seconds=cpu,
                      yuv_decode_core_equivalents=cpu/elapsed if cpu is not None else None, command=cmd[1:])

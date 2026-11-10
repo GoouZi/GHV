@@ -62,7 +62,7 @@ int main() {
             }
             const auto original=ghvc9::bit_pack(coeff_source,80,32);
             auto encoded=ghvc9::bit_pack(coeff_source,80,32,true);
-            if((encoded[7]&10)!=10 || encoded.size()>=original.size())
+            if((encoded[7]&26)!=26 || encoded.size()>=original.size())
                 throw std::runtime_error("expected compact coefficients and a smaller packet");
             std::vector<uint8_t> reference, result;
             ghvc9::decode(original,&flat,80,32,1,flat.size(),reference);

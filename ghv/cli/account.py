@@ -12,6 +12,9 @@ from ghv.paths import native_binary
 from ghv import gha
 
 
+COEFFICIENT_PACKETS = {'GBP9', 'GIC9', 'GTC7', 'GTP9', 'GCP9'}
+
+
 def motion_fields(body, count, compact):
     fields = Counter()
     cursor = 0
@@ -86,8 +89,9 @@ def analyze(path, rows):
         section('index_header', header.index_offset, struct.calcsize(INDEX_HEAD_FMT))
         entry = struct.calcsize(INDEX_ENTRY_FMT)
         section('index_entries', header.index_offset + struct.calcsize(INDEX_HEAD_FMT), entry * len(index))
-        totals['index_entries'] -= 56 * len(index)
-        totals['index_padding'] = 56 * len(index)
+        index_pad_bits = (entry - struct.calcsize('<QB')) * 8 * len(index)
+        totals['index_entries'] -= index_pad_bits
+        totals['index_padding'] = index_pad_bits
         if header.audio_offset:
             stream.seek(header.audio_offset)
             magic, _, length, _ = struct.unpack(AUDIO_FMT, stream.read(AUDIO_SIZE))
@@ -108,10 +112,10 @@ def analyze(path, rows):
                 raise ValueError('short payload')
             spans.append((off, off + FRAME_SIZE + length))
             bits = Counter(frame_header=8 * FRAME_SIZE)
-            tag = data[:4].decode('ascii') if data else 'repeat'
+            tag = data[:4].decode('ascii', errors='backslashreplace') if data else 'repeat'
             frame_counts[tag] += 1
             metrics = {}
-            if tag in ('GBP9', 'GIC9', 'GTC7', 'GTP9', 'GCP9'):
+            if tag in COEFFICIENT_PACKETS:
                 intra = tag in ('GIC9','GTC7')
                 blocks = struct.unpack_from('<I', data, 12)[0]
                 descriptors = (3 if intra else 1) * blocks
@@ -128,7 +132,10 @@ def analyze(path, rows):
                 helper.stdin.write(struct.pack('<I', length))
                 helper.stdin.write(data)
                 helper.stdin.flush()
-                last, run, level, pad, alt, small, count, tags, dc_mode, dc_delta = map(int, helper.stdout.readline().split())
+                counts = helper.stdout.readline().split()
+                if len(counts) != 10:
+                    raise ValueError(f'incomplete coefficient accounting for frame {no} ({tag})')
+                last, run, level, pad, alt, small, count, tags, dc_mode, dc_delta = map(int, counts)
                 bits.update(end_position=last, zero_run=run, coefficient_level=level, entropy_padding=pad, token_tags=tags,
                             dc_prediction_mode=dc_mode, dc_delta=dc_delta)
                 metrics = dict(tokens=count, small_levels=small, alternative_level_bits=alt)
@@ -157,7 +164,7 @@ def analyze(path, rows):
             types[tag].update(bits)
             if rows:
                 print(json.dumps(dict(frame=no, offset=off, pts_us=pts, kind=kind, payload=tag,
-                                      payload_bytes=length, crc=crc, quality=data[5] if length >= 16 and tag != 'GZP9' else None, flags=data[7] if length >= 16 and tag != 'GZP9' else None, raw_bytes=raw, bits=bits, **metrics)), file=rows)
+                                      payload_bytes=length, crc=crc, quality=data[5] if tag in COEFFICIENT_PACKETS else None, flags=data[7] if tag in COEFFICIENT_PACKETS else None, raw_bytes=raw, bits=bits, **metrics)), file=rows)
         helper.stdin.close()
         if helper.wait():
             raise RuntimeError('entropy reader failed')
@@ -180,6 +187,9 @@ def main():
     parser.add_argument('summary', type=Path)
     parser.add_argument('--frames', type=Path)
     args = parser.parse_args()
+    destinations = [args.summary] + ([args.frames] if args.frames else [])
+    if len({p.resolve() for p in destinations}) != len(destinations) or any(p.exists() for p in destinations):
+        parser.error('report paths must be distinct new files')
     if args.frames:
         with args.frames.open('x', encoding='utf8') as rows:
             result = analyze(args.file, rows)

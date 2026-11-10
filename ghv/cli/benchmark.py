@@ -93,13 +93,25 @@ def measure_decode(path: Path,frames: int,profile: bool = False):
     return (float(m.group(1)) if m else None),peak,parse_profile_line(err.splitlines(),'GHV_DECODE_PROFILE')
 
 
+def quality_filter(fps_num, fps_den):
+    return (f'[0:v]settb=AVTB,setpts=N*{fps_den}*1000000/{fps_num},split=2[d0][d1];'
+         f'[1:v]settb=AVTB,setpts=N*{fps_den}*1000000/{fps_num},split=2[s0][s1];'
+         '[d0][s0]psnr=shortest=1:repeatlast=0;[d1][s1]ssim=shortest=1:repeatlast=0')
+
+
+def quality_summary(err):
+    txt=err.decode('utf-8','replace')
+    pm=re.search(r'PSNR y:[^\r\n]* average:([0-9.]+|inf)',txt)
+    sm=re.search(r'SSIM Y:[^\r\n]* All:(-?[0-9.]+)',txt)
+    return {'psnr_db':('inf' if pm.group(1)=='inf' else float(pm.group(1))) if pm else None,
+            'ssim':float(sm.group(1)) if sm else None}
+
+
 def measure_quality(source: Path,path: Path):
     ffmpeg=shutil.which('ffmpeg');dec=native_binary('ghvdecode')
     if not ffmpeg or not dec.is_file():return {}
     h,_=inspect_output(path);fps=f'{h.fps_num}/{h.fps_den}'
-    flt=(f'[0:v]settb=AVTB,setpts=N*{h.fps_den}*1000000/{h.fps_num},split=2[d0][d1];'
-         f'[1:v]settb=AVTB,setpts=N*{h.fps_den}*1000000/{h.fps_num},split=2[s0][s1];'
-         '[d0][s0]psnr=shortest=1:repeatlast=0;[d1][s1]ssim=shortest=1:repeatlast=0')
+    flt=quality_filter(h.fps_num,h.fps_den)
     d=subprocess.Popen([str(dec),str(path)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     assert d.stdout is not None
     cmd=[ffmpeg,'-hide_banner','-nostats','-f','rawvideo','-pixel_format','yuv420p','-video_size',
@@ -108,11 +120,7 @@ def measure_quality(source: Path,path: Path):
     q=subprocess.Popen(cmd,stdin=d.stdout,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
     d.stdout.close();_,err=q.communicate();d.stderr.read();drc=d.wait()
     if drc or q.returncode:return {}
-    txt=err.decode('utf-8','replace')
-    pm=re.search(r'PSNR y:[^\r\n]* average:([0-9.]+|inf)',txt)
-    sm=re.search(r'SSIM Y:[^\r\n]* All:([0-9.]+)',txt)
-    return {'psnr_db':('inf' if pm.group(1)=='inf' else float(pm.group(1))) if pm else None,
-            'ssim':float(sm.group(1)) if sm else None}
+    return quality_summary(err)
 
 
 def main():

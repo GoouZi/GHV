@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, shutil, struct, subprocess, sys
+import io, json, os, shutil, struct, subprocess, sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
@@ -26,6 +26,18 @@ def main():
         p=subprocess.run([str(dec),str(out),'--verify','--no-output'],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
         if p.returncode:raise RuntimeError('GHVC9 native decode/CRC failed: '+p.stderr)
         print('[PASS] GHVC9 native decode + CRC')
+        from ghv.paths import native_binary
+        if native_binary('ghvbitaccount').is_file():
+            from ghv.cli.account import analyze
+            rows = io.StringIO()
+            summary = analyze(out, rows)
+            frames = [json.loads(line) for line in rows.getvalue().splitlines()]
+            assert len(frames) == h.frame_count
+            assert sum(summary['bits'].values()) == out.stat().st_size * 8
+            assert all(sum(row['bits'].values()) == (row['payload_bytes'] + FRAME_SIZE)*8 for row in frames)
+            assert summary['bits']['zero_run'] and summary['bits']['coefficient_level']
+            print('[PASS] GHVC9 default-profile bit accounting reconciles each frame and file')
+
         shutil.copyfile(out,bad)
         off,v,payload=first_p
         if payload[:4]==b'GBP9':
