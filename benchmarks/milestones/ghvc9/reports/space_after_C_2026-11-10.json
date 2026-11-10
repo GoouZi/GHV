@@ -1,0 +1,87 @@
+{
+  "file": "Test C-1.ghv",
+  "bytes": 2460102407,
+  "frames": 4352,
+  "bits": {
+    "container_header": 768,
+    "index_header": 64,
+    "index_entries": 313344,
+    "index_padding": 243712,
+    "audio_header": 192,
+    "gha_header": 512,
+    "audio_anchors": 7997440,
+    "audio_steps": 7997440,
+    "audio_codes": 123960320,
+    "audio_final_block_padding": 0,
+    "audio_pack_padding": 0,
+    "frame_header": 1114112,
+    "quality_field": 31704,
+    "codec_header_other": 715112,
+    "predictor_mode": 85536000,
+    "zero_block_map": 770407200,
+    "descriptor_padding": 0,
+    "end_position": 3000055242,
+    "zero_run": 6424591008,
+    "coefficient_level": 8647984500,
+    "entropy_padding": 9932394,
+    "token_tags": 0,
+    "dc_prediction_mode": 0,
+    "dc_delta": 0,
+    "motion_reuse_mask": 121273200,
+    "motion_mask_padding": 0,
+    "motion_delta": 385711392,
+    "motion_escape": 1804064,
+    "chunk_table": 91149536,
+    "unreferenced": 0
+  },
+  "frame_bits_by_payload": {
+    "GIC9": {
+      "frame_header": 56320,
+      "quality_field": 1760,
+      "codec_header_other": 26400,
+      "predictor_mode": 85536000,
+      "zero_block_map": 42768000,
+      "descriptor_padding": 0,
+      "end_position": 121458138,
+      "zero_run": 328781019,
+      "coefficient_level": 588735321,
+      "entropy_padding": 778,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0
+    },
+    "GBP9": {
+      "frame_header": 958208,
+      "quality_field": 29944,
+      "codec_header_other": 688712,
+      "predictor_mode": 0,
+      "zero_block_map": 727639200,
+      "descriptor_padding": 0,
+      "motion_reuse_mask": 121273200,
+      "motion_mask_padding": 0,
+      "motion_delta": 385711392,
+      "motion_escape": 1804064,
+      "chunk_table": 91149536,
+      "end_position": 2878597104,
+      "zero_run": 6095809989,
+      "coefficient_level": 8059249179,
+      "entropy_padding": 9931616,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0
+    },
+    "repeat": {
+      "frame_header": 99584
+    }
+  },
+  "frame_counts": {
+    "GIC9": 220,
+    "GBP9": 3743,
+    "repeat": 389
+  },
+  "symbol_counts": {
+    "tokens": 2666311633,
+    "small_levels": 2518367673,
+    "alternative_level_bits": 8650103395
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "file": "Test A-1.ghv",
+  "bytes": 186448522,
+  "frames": 3822,
+  "bits": {
+    "container_header": 768,
+    "index_header": 64,
+    "index_entries": 275184,
+    "index_padding": 214032,
+    "audio_header": 192,
+    "gha_header": 512,
+    "audio_anchors": 6025216,
+    "audio_steps": 6025216,
+    "audio_codes": 93390848,
+    "audio_final_block_padding": 0,
+    "audio_pack_padding": 0,
+    "frame_header": 978432,
+    "quality_field": 28808,
+    "codec_header_other": 655672,
+    "predictor_mode": 2643840,
+    "zero_block_map": 44076240,
+    "descriptor_padding": 0,
+    "end_position": 152828008,
+    "zero_run": 548297192,
+    "coefficient_level": 607905569,
+    "entropy_padding": 525727,
+    "token_tags": 0,
+    "dc_prediction_mode": 0,
+    "dc_delta": 0,
+    "motion_reuse_mask": 7125720,
+    "motion_mask_padding": 0,
+    "motion_delta": 15087208,
+    "motion_escape": 26704,
+    "chunk_table": 5477024,
+    "unreferenced": 0
+  },
+  "frame_bits_by_payload": {
+    "GIC9": {
+      "frame_header": 27648,
+      "quality_field": 864,
+      "codec_header_other": 12960,
+      "predictor_mode": 2643840,
+      "zero_block_map": 1321920,
+      "descriptor_padding": 0,
+      "end_position": 4386828,
+      "zero_run": 13104235,
+      "coefficient_level": 23048932,
+      "entropy_padding": 365,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0
+    },
+    "repeat": {
+      "frame_header": 56576
+    },
+    "GBP9": {
+      "frame_header": 894208,
+      "quality_field": 27944,
+      "codec_header_other": 642712,
+      "predictor_mode": 0,
+      "zero_block_map": 42754320,
+      "descriptor_padding": 0,
+      "motion_reuse_mask": 7125720,
+      "motion_mask_padding": 0,
+      "motion_delta": 15087208,
+      "motion_escape": 26704,
+      "chunk_table": 5477024,
+      "end_position": 148441180,
+      "zero_run": 535192957,
+      "coefficient_level": 584856637,
+      "entropy_padding": 525362,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0
+    }
+  },
+  "frame_counts": {
+    "GIC9": 108,
+    "repeat": 221,
+    "GBP9": 3493
+  },
+  "symbol_counts": {
+    "tokens": 198940810,
+    "small_levels": 190653187,
+    "alternative_level_bits": 616302951
+  }
+}

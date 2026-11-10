@@ -1,0 +1,471 @@
+{
+  "B": {
+    "schema": "ghv-native-player-stats-v1",
+    "clock_master": "WASAPI audio clock",
+    "audio_rate_fixed": true,
+    "duration_seconds": 104.118,
+    "wall_seconds": 104.132,
+    "displayed_frames": 3121,
+    "dropped_frames": 0,
+    "video_underruns": 0,
+    "freeze_events": 0,
+    "pitch_change_events": 0,
+    "slowdown_events": 0,
+    "speedup_events": 0,
+    "max_av_drift_seconds": 0.019175,
+    "cpu_seconds": 632.484,
+    "average_cpu_percent_of_machine": 30.3695,
+    "due_events": [],
+    "peak_working_set_bytes": 177500160
+  },
+  "B_all": [
+    {
+      "schema": "ghv-native-player-stats-v1",
+      "clock_master": "WASAPI audio clock",
+      "audio_rate_fixed": true,
+      "duration_seconds": 104.118,
+      "wall_seconds": 104.132,
+      "displayed_frames": 3121,
+      "dropped_frames": 0,
+      "video_underruns": 0,
+      "freeze_events": 0,
+      "pitch_change_events": 0,
+      "slowdown_events": 0,
+      "speedup_events": 0,
+      "max_av_drift_seconds": 0.019175,
+      "cpu_seconds": 632.484,
+      "average_cpu_percent_of_machine": 30.3695,
+      "due_events": [],
+      "peak_working_set_bytes": 177500160
+    }
+  ],
+  "C": {
+    "schema": "ghv-native-player-stats-v1",
+    "clock_master": "WASAPI audio clock",
+    "audio_rate_fixed": true,
+    "duration_seconds": 181.348,
+    "wall_seconds": 181.371,
+    "displayed_frames": 4352,
+    "dropped_frames": 0,
+    "video_underruns": 0,
+    "freeze_events": 0,
+    "pitch_change_events": 0,
+    "slowdown_events": 0,
+    "speedup_events": 0,
+    "max_av_drift_seconds": 0.0186,
+    "cpu_seconds": 1266.34,
+    "average_cpu_percent_of_machine": 34.9103,
+    "due_events": [],
+    "peak_working_set_bytes": 315359232
+  },
+  "C_all": [
+    {
+      "schema": "ghv-native-player-stats-v1",
+      "clock_master": "WASAPI audio clock",
+      "audio_rate_fixed": true,
+      "duration_seconds": 181.348,
+      "wall_seconds": 181.371,
+      "displayed_frames": 4352,
+      "dropped_frames": 0,
+      "video_underruns": 0,
+      "freeze_events": 0,
+      "pitch_change_events": 0,
+      "slowdown_events": 0,
+      "speedup_events": 0,
+      "max_av_drift_seconds": 0.0186,
+      "cpu_seconds": 1266.34,
+      "average_cpu_percent_of_machine": 34.9103,
+      "due_events": [],
+      "peak_working_set_bytes": 315359232
+    }
+  ],
+  "visible60": {
+    "schema": "ghv-native-player-stats-v1",
+    "clock_master": "WASAPI audio clock",
+    "audio_rate_fixed": true,
+    "duration_seconds": 3,
+    "wall_seconds": 3.02035,
+    "displayed_frames": 180,
+    "dropped_frames": 0,
+    "video_underruns": 0,
+    "freeze_events": 0,
+    "pitch_change_events": 0,
+    "slowdown_events": 0,
+    "speedup_events": 0,
+    "max_av_drift_seconds": 0.019437,
+    "cpu_seconds": 7.84375,
+    "average_cpu_percent_of_machine": 12.9848,
+    "due_events": [
+      {
+        "pts_us": 166666,
+        "clock_us": 182312,
+        "queued_us": 207698,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 366666,
+        "clock_us": 384718,
+        "queued_us": 407459,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 400000,
+        "clock_us": 414718,
+        "queued_us": 422975,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 416666,
+        "clock_us": 434750,
+        "queued_us": 410357,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 450000,
+        "clock_us": 464812,
+        "queued_us": 410467,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 616666,
+        "clock_us": 634656,
+        "queued_us": 411537,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 650000,
+        "clock_us": 665156,
+        "queued_us": 411498,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 700000,
+        "clock_us": 715562,
+        "queued_us": 411688,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 900000,
+        "clock_us": 916562,
+        "queued_us": 410857,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1133333,
+        "clock_us": 1149125,
+        "queued_us": 403278,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1150000,
+        "clock_us": 1169437,
+        "queued_us": 413586,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1183333,
+        "clock_us": 1200187,
+        "queued_us": 413235,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1366666,
+        "clock_us": 1384593,
+        "queued_us": 408059,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1400000,
+        "clock_us": 1415187,
+        "queued_us": 408159,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1450000,
+        "clock_us": 1466343,
+        "queued_us": 408897,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1666666,
+        "clock_us": 1682281,
+        "queued_us": 410303,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1866666,
+        "clock_us": 1885125,
+        "queued_us": 408367,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1916666,
+        "clock_us": 1935125,
+        "queued_us": 405939,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1950000,
+        "clock_us": 1965906,
+        "queued_us": 405802,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2166666,
+        "clock_us": 2182156,
+        "queued_us": 409585,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2366666,
+        "clock_us": 2384218,
+        "queued_us": 406862,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2416666,
+        "clock_us": 2434250,
+        "queued_us": 407278,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2450000,
+        "clock_us": 2465187,
+        "queued_us": 406603,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2633333,
+        "clock_us": 2650687,
+        "queued_us": 407941,
+        "depth": 22,
+        "skipped": false
+      },
+      {
+        "pts_us": 2716666,
+        "clock_us": 2732375,
+        "queued_us": 407827,
+        "depth": 17,
+        "skipped": false
+      },
+      {
+        "pts_us": 2900000,
+        "clock_us": 2917343,
+        "queued_us": 409593,
+        "depth": 6,
+        "skipped": false
+      },
+      {
+        "pts_us": 2933333,
+        "clock_us": 2948531,
+        "queued_us": 410432,
+        "depth": 4,
+        "skipped": false
+      }
+    ],
+    "peak_working_set_bytes": 54554624
+  },
+  "hidden60": {
+    "schema": "ghv-native-player-stats-v1",
+    "clock_master": "WASAPI audio clock",
+    "audio_rate_fixed": true,
+    "duration_seconds": 3,
+    "wall_seconds": 3.01153,
+    "displayed_frames": 180,
+    "dropped_frames": 0,
+    "video_underruns": 0,
+    "freeze_events": 0,
+    "pitch_change_events": 0,
+    "slowdown_events": 0,
+    "speedup_events": 0,
+    "max_av_drift_seconds": 0.021323,
+    "cpu_seconds": 11,
+    "average_cpu_percent_of_machine": 18.2631,
+    "due_events": [
+      {
+        "pts_us": 50000,
+        "clock_us": 66968,
+        "queued_us": 92781,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 283333,
+        "clock_us": 299593,
+        "queued_us": 320859,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 516666,
+        "clock_us": 531812,
+        "queued_us": 404552,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 533333,
+        "clock_us": 551968,
+        "queued_us": 412998,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 566666,
+        "clock_us": 581968,
+        "queued_us": 404667,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1016666,
+        "clock_us": 1034312,
+        "queued_us": 411962,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1050000,
+        "clock_us": 1065031,
+        "queued_us": 411994,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1250000,
+        "clock_us": 1267000,
+        "queued_us": 403187,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1300000,
+        "clock_us": 1317156,
+        "queued_us": 412481,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1533333,
+        "clock_us": 1549125,
+        "queued_us": 403782,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1733333,
+        "clock_us": 1750062,
+        "queued_us": 402802,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1750000,
+        "clock_us": 1770093,
+        "queued_us": 412762,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 1783333,
+        "clock_us": 1800593,
+        "queued_us": 413155,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2016666,
+        "clock_us": 2033468,
+        "queued_us": 404088,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2216666,
+        "clock_us": 2234500,
+        "queued_us": 403657,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2233333,
+        "clock_us": 2254656,
+        "queued_us": 413693,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2266666,
+        "clock_us": 2284593,
+        "queued_us": 413661,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2300000,
+        "clock_us": 2315625,
+        "queued_us": 404680,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2516666,
+        "clock_us": 2533125,
+        "queued_us": 409110,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2566666,
+        "clock_us": 2583156,
+        "queued_us": 409061,
+        "depth": 24,
+        "skipped": false
+      },
+      {
+        "pts_us": 2783333,
+        "clock_us": 2800812,
+        "queued_us": 413768,
+        "depth": 13,
+        "skipped": false
+      }
+    ],
+    "peak_working_set_bytes": 54001664
+  },
+  "seek_full": [
+    "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock running_us=286354 sought_us=63887500",
+    "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock running_us=282154 sought_us=52242652",
+    "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock running_us=288526 sought_us=90863831"
+  ],
+  "seek_synthetic": {
+    "25fps_44100hz.seek": [
+      "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock running_us=290498 sought_us=1683333"
+    ],
+    "60fps_32000hz.seek": [
+      "PASS native player core prebuffer/presentation/10-90% seek and WASAPI clock running_us=291031 sought_us=1684437"
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "file": "Test B-1.ghv",
+  "bytes": 348722020,
+  "frames": 3121,
+  "bits": {
+    "container_header": 768,
+    "index_header": 64,
+    "index_entries": 224712,
+    "index_padding": 174776,
+    "audio_header": 192,
+    "gha_header": 512,
+    "audio_anchors": 4591616,
+    "audio_steps": 4591616,
+    "audio_codes": 71170048,
+    "audio_final_block_padding": 0,
+    "audio_pack_padding": 0,
+    "frame_header": 798976,
+    "quality_field": 19496,
+    "codec_header_other": 441880,
+    "predictor_mode": 9938880,
+    "zero_block_map": 118730640,
+    "descriptor_padding": 0,
+    "end_position": 324767262,
+    "zero_run": 864073616,
+    "coefficient_level": 1308119218,
+    "entropy_padding": 1556168,
+    "token_tags": 0,
+    "dc_prediction_mode": 0,
+    "dc_delta": 0,
+    "motion_reuse_mask": 19053600,
+    "motion_mask_padding": 0,
+    "chunk_table": 14346240,
+    "motion_delta": 47065136,
+    "motion_escape": 110744,
+    "unreferenced": 0
+  },
+  "frame_bits_by_payload": {
+    "GIC9": {
+      "frame_header": 26112,
+      "quality_field": 816,
+      "codec_header_other": 12240,
+      "predictor_mode": 9938880,
+      "zero_block_map": 4969440,
+      "descriptor_padding": 0,
+      "end_position": 15928506,
+      "zero_run": 34955820,
+      "coefficient_level": 67899404,
+      "entropy_padding": 318,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0
+    },
+    "repeat": {
+      "frame_header": 175104
+    },
+    "GBP9": {
+      "frame_header": 597760,
+      "quality_field": 18680,
+      "codec_header_other": 429640,
+      "predictor_mode": 0,
+      "zero_block_map": 113761200,
+      "descriptor_padding": 0,
+      "motion_reuse_mask": 19053600,
+      "motion_mask_padding": 0,
+      "chunk_table": 14346240,
+      "end_position": 308838756,
+      "zero_run": 829117796,
+      "coefficient_level": 1240219814,
+      "entropy_padding": 1555850,
+      "token_tags": 0,
+      "dc_prediction_mode": 0,
+      "dc_delta": 0,
+      "motion_delta": 47065136,
+      "motion_escape": 110744
+    }
+  },
+  "frame_counts": {
+    "GIC9": 102,
+    "repeat": 684,
+    "GBP9": 2335
+  },
+  "symbol_counts": {
+    "tokens": 374081064,
+    "small_levels": 349469635,
+    "alternative_level_bits": 1381069818
+  }
+}

@@ -2,6 +2,15 @@
 
 Last updated: 2026-11-10
 
+## November 10 bitstream accounting and compact zero runs
+
+The opt-in compact coefficient encoder now selects an alternate GBP9 zero-run
+prefix when its measured frame savings cover chunk padding. Use the updated
+decoder for new bit-4 streams. The default profile and previously recorded
+GHVC8/9 files keep their decoding paths. See the [space audit, benchmarks and
+player regression](../../benchmarks/milestones/ghvc9/GHVC9_SPACE_2026-11-10.md)
+and [repeatable suite commands](../../benchmarks/README.md).
+
 ## November 10 encoder and Player
 
 Full C encoding reached 11.773 fps with byte-identical compact output. Three
