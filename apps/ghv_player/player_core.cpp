@@ -80,7 +80,7 @@ void PlayerCore::worker_loop() {
             return;
         }
         std::lock_guard<std::mutex> lock(mutex_);
-        queue_.push_back(std::move(frame));
+        queue_.push_back({std::move(frame), std::chrono::steady_clock::now()});
         has_frame_.notify_all();
     }
 }
@@ -107,19 +107,30 @@ bool PlayerCore::seek(uint64_t target_us, std::string& error) {
     return true;
 }
 
-bool PlayerCore::frame_for_clock(uint64_t clock_us, ghv::VideoFrame& frame, uint64_t& dropped) {
+bool PlayerCore::frame_for_clock(uint64_t clock_us, ghv::VideoFrame& frame, uint64_t& dropped, std::vector<DueEvent>* events) {
     std::lock_guard<std::mutex> lock(mutex_);
-    bool have = false;
-    // Select the newest due frame. Older due frames are late and can be dropped;
-    // an early frame remains queued, so decoding never owns presentation timing.
-    while (!queue_.empty() && queue_.front().pts_us <= clock_us + 2000) {
-        if (have) ++dropped;
-        frame = std::move(queue_.front());
+    if(queue_.empty() || queue_.front().frame.pts_us>clock_us+2000) return false;
+    while(queue_.size()>1 && queue_[1].frame.pts_us<=clock_us+2000) {
+        const auto& oldest=queue_.front();
+        const auto& next=queue_[1].frame;
+        // A timer tick can straddle two deadlines. Show the older frame if
+        // the next one can still be presented within half a frame interval.
+        const uint64_t grace=std::min<uint64_t>(next.duration_us/2,20000);
+        const bool skip=clock_us>next.pts_us+grace;
+        if(events && events->size()<256) {
+            const auto age=std::chrono::steady_clock::now()-oldest.ready;
+            events->push_back({oldest.frame.pts_us, clock_us,
+                uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(age).count()),
+                queue_.size(), skip});
+        }
+        if(!skip) break;
+        ++dropped;
         queue_.pop_front();
-        have = true;
     }
-    if (have) can_push_.notify_one();
-    return have;
+    frame=std::move(queue_.front().frame);
+    queue_.pop_front();
+    can_push_.notify_one();
+    return true;
 }
 
 bool PlayerCore::has_error(std::string& message) const {

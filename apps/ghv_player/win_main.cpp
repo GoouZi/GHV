@@ -59,6 +59,8 @@ struct App {
     bool fullscreen_mode = false;
     bool controls_visible = true;
     bool seeking = false;
+    std::vector<ghvplayer::DueEvent> due_events;
+    bool redraw=true;
     uint64_t dropped = 0;
     uint64_t displayed_count = 0;
     uint64_t video_underruns = 0;
@@ -112,6 +114,7 @@ struct App {
     }
 
     void show_controls(bool show) {
+        if(controls_visible!=show) redraw=true;
         controls_visible = show;
         for (HWND control : {play, seek, time, volume, mute, fullscreen}) ShowWindow(control, show ? SW_SHOW : SW_HIDE);
         SetCursor(show || !fullscreen_mode ? LoadCursor(nullptr, IDC_ARROW) : nullptr);
@@ -124,6 +127,7 @@ struct App {
         if (!core.open(utf8(path), error)) { show_error(error); return false; }
         if (!audio.open(core.audio(), error)) { core.close(); show_error(error); return false; }
         if (!core.wait_for_prebuffer(10000, error)) { audio.close(); core.close(); show_error(error); return false; }
+        due_events.clear();
         opened = true; ended = false; dropped = 0; displayed_count = 0; video_underruns = 0;
         freeze_events = 0; max_drift_us = 0; freeze_active = false; underrun_active = false; displayed = {};
         SendMessageW(seek, TBM_SETPOS, TRUE, 0);
@@ -213,10 +217,11 @@ struct App {
         if (core.has_error(decode_error)) { audio.pause(); playing = false; show_error(decode_error); core.close(); opened = false; return; }
         const uint64_t now = clock_us();
         ghv::VideoFrame frame;
-        if (core.frame_for_clock(now, frame, dropped)) {
+        if (core.frame_for_clock(now, frame, dropped, stats_path.empty()?nullptr:&due_events)) {
             std::string error;
             if (!renderer.upload(frame, error)) { show_error(error); return; }
             displayed = std::move(frame);
+            redraw=true;
             ++displayed_count;
             max_drift_us = std::max<uint64_t>(max_drift_us,
                 now > displayed.pts_us ? now - displayed.pts_us : displayed.pts_us - now);
@@ -241,7 +246,10 @@ struct App {
             if (exit_at_eof) PostMessageW(window, WM_CLOSE, 0, 0);
         }
         RECT r{}; GetClientRect(window, &r);
-        renderer.render(r.right, std::max(1L, r.bottom - (controls_visible ? kControlHeight : 0)));
+        if(redraw) {
+            renderer.render(r.right, std::max(1L, r.bottom - (controls_visible ? kControlHeight : 0)));
+            redraw=false;
+        }
         if (fullscreen_mode && controls_visible && GetTickCount() - last_mouse_tick > 2500) show_controls(false);
     }
 
@@ -265,6 +273,15 @@ struct App {
             << "  \"max_av_drift_seconds\": " << max_drift_us/1000000.0 << ",\n"
             << "  \"cpu_seconds\": " << cpu_seconds << ",\n"
             << "  \"average_cpu_percent_of_machine\": " << (wall_seconds>0?cpu_seconds/wall_seconds*100.0/std::max(1u,std::thread::hardware_concurrency()):0) << ",\n"
+            << "  \"due_events\": [";
+        for(size_t i=0;i<due_events.size();++i) {
+            const auto& e=due_events[i];
+            if(i) out << ",";
+            out << "{\"pts_us\":" << e.pts_us << ",\"clock_us\":" << e.clock_us
+                << ",\"queued_us\":" << e.queued_us << ",\"depth\":" << e.depth
+                << ",\"skipped\":" << (e.skipped?"true":"false") << "}";
+        }
+        out << "],\n"
             << "  \"peak_working_set_bytes\": " << memory.PeakWorkingSetSize << "\n}\n";
     }
 };
@@ -307,8 +324,11 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         SetTimer(window, kRenderTimer, 10, nullptr);
         return 0;
     }
+    case WM_PAINT:
+        if(app) app->redraw=true;
+        break;
     case WM_SIZE:
-        if (app) { app->layout(); app->renderer.resize(LOWORD(lparam), HIWORD(lparam)); }
+        if (app) { app->redraw=true; app->layout(); app->renderer.resize(LOWORD(lparam), HIWORD(lparam)); }
         return 0;
     case WM_COMMAND:
         if (!app) break;

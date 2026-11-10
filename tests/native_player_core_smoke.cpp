@@ -22,6 +22,29 @@ int main(int argc, char** argv) {
     if (!core.frame_for_clock(2000, frame, dropped) || frame.frame_index != 0) {
         std::cerr << "first presentation frame failed\n"; return 4;
     }
+    // Poll at the second frame's actual PTS, then one full interval late.
+    // Prebuffer both runs so this tests clock selection independently of CPU speed.
+    if(core.metadata().frame_count>=3) {
+        ghv::Decoder probe;
+        ghv::Error probe_error;
+        ghv::VideoFrame first, second;
+        if(!probe.open(argv[1],&probe_error) || !probe.decode_next(first,&probe_error) ||
+           !probe.decode_next(second,&probe_error)) return 4;
+        for(bool late : {false,true}) {
+            if(!core.seek(0,error) || !core.wait_for_prebuffer(10000,error)) return 4;
+            const auto clock=second.pts_us+(late ? second.duration_us : 0);
+            uint64_t skips=0;
+            if(!core.frame_for_clock(clock,frame,skips) ||
+               (late ? (skips==0 || frame.frame_index==first.frame_index)
+                     : (skips!=0 || frame.frame_index!=first.frame_index))) {
+                std::cerr << "presentation deadline policy failed\n"; return 4;
+            }
+            if(!late && (!core.frame_for_clock(clock,frame,skips) ||
+                         skips!=0 || frame.frame_index!=second.frame_index)) {
+                std::cerr << "next due frame was lost\n"; return 4;
+            }
+        }
+    }
     const uint64_t duration = core.metadata().duration_us;
     for (const uint64_t percentage : {10ull, 25ull, 50ull, 75ull, 90ull}) {
         const uint64_t target = duration * percentage / 100;

@@ -3,6 +3,8 @@
 #include <ghv/ghv.h>
 
 #include <atomic>
+#include <chrono>
+#include <vector>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -11,6 +13,12 @@
 #include <thread>
 
 namespace ghvplayer {
+
+struct DueEvent {
+    uint64_t pts_us, clock_us, queued_us;
+    size_t depth;
+    bool skipped;
+};
 
 class PlayerCore {
 public:
@@ -23,7 +31,7 @@ public:
     void close();
     bool seek(uint64_t target_us, std::string& error);
     bool wait_for_prebuffer(uint32_t timeout_ms, std::string& error);
-    bool frame_for_clock(uint64_t clock_us, ghv::VideoFrame& frame, uint64_t& dropped);
+    bool frame_for_clock(uint64_t clock_us, ghv::VideoFrame& frame, uint64_t& dropped, std::vector<DueEvent>* events=nullptr);
     const ghv::Metadata& metadata() const { return metadata_; }
     const ghv::AudioBuffer& audio() const { return audio_; }
     bool decoder_eof() const { return decode_eof_.load(); }
@@ -42,7 +50,8 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable can_push_;
     std::condition_variable has_frame_;
-    std::deque<ghv::VideoFrame> queue_;
+    struct ReadyFrame { ghv::VideoFrame frame; std::chrono::steady_clock::time_point ready; };
+    std::deque<ReadyFrame> queue_;
     std::atomic<bool> stop_{false};
     std::atomic<bool> decode_eof_{false};
     size_t queue_limit_ = 12;

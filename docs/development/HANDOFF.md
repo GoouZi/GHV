@@ -1,6 +1,15 @@
 # GHV / GHA Project State
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
+
+## November 10 encoder and Player
+
+Full C encoding reached 11.773 fps with byte-identical compact output. Three
+consecutive hidden-window 4K Player runs reported all 4352 frames displayed
+and zero drops or freezes. A control using the previous rendering and drop
+policies also had zero drops today. Future overlapping frame deadlines are
+traceable through the Player stats `due_events` array. The November 9 speed
+gap described below is historical. See [full results](../../benchmarks/milestones/ghvc9/GHVC9_4K_TIMING_2026-11-10.md).
 
 ## Latest continuation — 2026-11-09
 

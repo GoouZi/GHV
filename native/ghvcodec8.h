@@ -127,6 +127,20 @@ inline uint64_t block_distortion(const Candidate& c,const std::vector<uint8_t>& 
     uint64_t sse=0;
     int dx=plane?int(mv.x)/2:int(mv.x),dy=plane?int(mv.y)/2:int(mv.y);
     bool direct=x0+7<pw&&y0+7<ph&&x0+dx>=0&&y0+dy>=0&&x0+7+dx<pw&&y0+7+dy<ph;
+    if(direct) {
+        // A full block's squared error fits in 32 bits (64 * 255^2).
+        uint32_t sum=0;
+        for(int y=0;y<8;++y) {
+            const auto* src=frame.data()+base+size_t(y0+y)*pw+x0;
+            const auto* ref=prev.data()+base+size_t(y0+y+dy)*pw+x0+dx;
+            for(int x=0;x<8;++x) {
+                const int pixel=c.last<0 ? ref[x] : ghvc7::clamp8(ref[x]+residual[y*8+x]);
+                const int error=int(src[x])-pixel;
+                sum+=uint32_t(error*error);
+            }
+        }
+        return sum;
+    }
     for(int y=0;y<8&&y0+y<ph;y++)for(int x=0;x<8&&x0+x<pw;x++){
         int pred=(x0+dx>=0&&y0+dy>=0&&x0+7+dx<pw&&y0+7+dy<ph)?prev[base+size_t(y0+y+dy)*pw+x0+x+dx]:ref_pixel(prev,base,pw,ph,x0+x,y0+y,dx,dy);
         int decoded=c.last<0?pred:ghvc7::clamp8(pred+residual[y*8+x]);

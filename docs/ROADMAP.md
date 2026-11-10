@@ -79,8 +79,7 @@ quality, faster-than-GHVC8 encoding, or 2x-realtime 4K24 decode.
 The November 9 compact profile reaches **177.811 MiB** on full Test A and
 **52.478 fps** verified decode on full 4K24 Test C. A's reconstructed YUV
 matches M1 byte for byte. C encoded at 10.427 fps against the historical
-GHVC8 perf2 result of 10.464 fps. The speed gate still needs a reproducible
-win on C. See the [compact profile report](../benchmarks/milestones/ghvc9/GHVC9_COMPACT_2026-11-09.md).
+GHVC8 perf2 result of 10.464 fps. On November 10 the optimized encoder reached 11.773 fps with byte-identical full C output. Three full native Player runs presented all 4352 frames. See [4K timing results](../benchmarks/milestones/ghvc9/GHVC9_4K_TIMING_2026-11-10.md). See the [compact profile report](../benchmarks/milestones/ghvc9/GHVC9_COMPACT_2026-11-09.md).
 
 Implemented foundations and continuing research:
 

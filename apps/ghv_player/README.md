@@ -27,6 +27,14 @@ Diagnostic automation can add `--stats FILE.json --exit-at-eof`. Normal users
 do not see telemetry controls. `ghvplay` remains the separate developer and
 diagnostic player for codec work.
 
+The `due_events` array stores up to 256 observations where two queued frames
+were eligible at one presentation poll. Each entry gives the older frame's
+PTS, audio/playback clock and time spent in the ready queue (microseconds),
+queue depth before selection, and whether that frame was skipped. A short
+poll delay can be recovered by presenting the older frame first when the next
+frame is at most half an interval late, capped at 20 ms. The total drop
+counter continues past the diagnostic array limit.
+
 Windows 10/11 x64 is the tested platform. The package includes the Microsoft
 VC/OpenMP runtime files required by this build. D3D11, D3DCompiler 47, WASAPI,
 and the common controls are Windows system components.

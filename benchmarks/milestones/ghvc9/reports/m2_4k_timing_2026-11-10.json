@@ -1,0 +1,151 @@
+{
+  "source": "m2_motion_C10.mp4",
+  "frames": 240,
+  "preset": "balanced",
+  "profile": true,
+  "codec9_options": [
+    "--compact-motion",
+    "--compact-coefficients"
+  ],
+  "baseline_codec_order": [
+    8,
+    9,
+    9,
+    8,
+    8,
+    9
+  ],
+  "fps": {
+    "GHVC8": [
+      10.404,
+      10.59,
+      9.935
+    ],
+    "GHVC9_before": [
+      10.852,
+      10.986,
+      10.351
+    ],
+    "GHVC9_after": [
+      11.058,
+      12.091,
+      12.754
+    ]
+  },
+  "median_fps": {
+    "GHVC8": 10.404,
+    "GHVC9_before": 10.852,
+    "GHVC9_after": 12.091
+  },
+  "compact_clip_sha256": "e4f43f253c6b49719345af18dcff6a6ac2a6f2a3f2cde483a040e09c609b332b",
+  "playback_source": "m2_tail_C.ghv",
+  "playback": [
+    {
+      "schema": "ghv-native-player-stats-v1",
+      "clock_master": "WASAPI audio clock",
+      "audio_rate_fixed": true,
+      "duration_seconds": 181.348,
+      "wall_seconds": 181.497,
+      "displayed_frames": 4352,
+      "dropped_frames": 0,
+      "video_underruns": 0,
+      "freeze_events": 0,
+      "pitch_change_events": 0,
+      "slowdown_events": 0,
+      "speedup_events": 0,
+      "max_av_drift_seconds": 0.025986,
+      "cpu_seconds": 1268.5,
+      "average_cpu_percent_of_machine": 34.9455,
+      "due_events": [],
+      "peak_working_set_bytes": 316387328
+    },
+    {
+      "schema": "ghv-native-player-stats-v1",
+      "clock_master": "WASAPI audio clock",
+      "audio_rate_fixed": true,
+      "duration_seconds": 181.348,
+      "wall_seconds": 181.5,
+      "displayed_frames": 4352,
+      "dropped_frames": 0,
+      "video_underruns": 0,
+      "freeze_events": 0,
+      "pitch_change_events": 0,
+      "slowdown_events": 0,
+      "speedup_events": 0,
+      "max_av_drift_seconds": 0.019619,
+      "cpu_seconds": 1271.58,
+      "average_cpu_percent_of_machine": 35.0297,
+      "due_events": [],
+      "peak_working_set_bytes": 316571648
+    },
+    {
+      "schema": "ghv-native-player-stats-v1",
+      "clock_master": "WASAPI audio clock",
+      "audio_rate_fixed": true,
+      "duration_seconds": 181.348,
+      "wall_seconds": 181.506,
+      "displayed_frames": 4352,
+      "dropped_frames": 0,
+      "video_underruns": 0,
+      "freeze_events": 0,
+      "pitch_change_events": 0,
+      "slowdown_events": 0,
+      "speedup_events": 0,
+      "max_av_drift_seconds": 0.020073,
+      "cpu_seconds": 1270.03,
+      "average_cpu_percent_of_machine": 34.986,
+      "due_events": [],
+      "peak_working_set_bytes": 315363328
+    }
+  ],
+  "control_playback": {
+    "schema": "ghv-native-player-stats-v1",
+    "clock_master": "WASAPI audio clock",
+    "audio_rate_fixed": true,
+    "duration_seconds": 181.348,
+    "wall_seconds": 181.505,
+    "displayed_frames": 4352,
+    "dropped_frames": 0,
+    "video_underruns": 0,
+    "freeze_events": 0,
+    "pitch_change_events": 0,
+    "slowdown_events": 0,
+    "speedup_events": 0,
+    "max_av_drift_seconds": 0.019884,
+    "cpu_seconds": 1267.69,
+    "average_cpu_percent_of_machine": 34.9215,
+    "due_events": [],
+    "peak_working_set_bytes": 328605696
+  },
+  "control_policy": "same instrumented build, Present every poll, newest eligible frame",
+  "hidden_window": true,
+  "player_muted": true,
+  "baseline_commit": "f94385a",
+  "rd_cpu_ms": {
+    "GHVC8": [
+      152620.0,
+      152295.0,
+      152952.0
+    ],
+    "GHVC9_before": [
+      104775.0,
+      104934.0,
+      105355.0
+    ],
+    "GHVC9_after": [
+      93306.6,
+      96141.3,
+      94900.6
+    ]
+  },
+  "full_C": {
+    "frames": 4352,
+    "duration_seconds": 181.348,
+    "encode_seconds": 369.66,
+    "encode_fps": 11.773,
+    "output_bytes": 2542110568,
+    "sha256_before_and_after": "b10b0719773a870055f21026f8e9d8f930373af0154be2b7ca734a3136d5e4f3",
+    "previous_run_fps": 10.427,
+    "frozen_ghvc8_perf2_fps": 10.464
+  }
+}
