@@ -198,7 +198,9 @@ def main():
     if result:
         report.update(frames=int(result.group(1)), duration_seconds=float(result.group(2)),
                       encoder_elapsed_seconds=float(result.group(4)), avg_fps=float(result.group(5)))
+    decode_start=time.perf_counter()
     report['decode_fps'],report['decode_peak_memory_bytes'],decode_profile=measure_decode(out,args.decode_frames,args.profile)
+    report['decode_wall_seconds']=time.perf_counter()-decode_start
     if args.profile:
         report['encode_profile']=parse_profile_line(lines,'GHV_ENCODE_PROFILE')
         report['decode_profile']=decode_profile

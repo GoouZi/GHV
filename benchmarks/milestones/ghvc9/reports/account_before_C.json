@@ -1,0 +1,61 @@
+{
+  "file": "m2_tail_C.ghv",
+  "bytes": 2542110568,
+  "frames": 4352,
+  "bits": {
+    "container_header": 768,
+    "index_header": 64,
+    "index_entries": 557056,
+    "audio_header": 192,
+    "audio_body": 139955712,
+    "frame_header": 1114112,
+    "quality_field": 31704,
+    "codec_header_other": 715112,
+    "predictor_mode": 85536000,
+    "zero_block_map": 770407200,
+    "descriptor_padding": 0,
+    "end_position": 3000055242,
+    "zero_run": 7080649991,
+    "coefficient_level": 8647984500,
+    "entropy_padding": 9938699,
+    "motion_body": 508788656,
+    "chunk_table": 91149536,
+    "unreferenced_bytes_bits": 0
+  },
+  "frame_bits_by_payload": {
+    "GIC9": {
+      "frame_header": 56320,
+      "quality_field": 1760,
+      "codec_header_other": 26400,
+      "predictor_mode": 85536000,
+      "zero_block_map": 42768000,
+      "descriptor_padding": 0,
+      "end_position": 121458138,
+      "zero_run": 328781019,
+      "coefficient_level": 588735321,
+      "entropy_padding": 778
+    },
+    "GBP9": {
+      "frame_header": 958208,
+      "quality_field": 29944,
+      "codec_header_other": 688712,
+      "predictor_mode": 0,
+      "zero_block_map": 727639200,
+      "descriptor_padding": 0,
+      "motion_body": 508788656,
+      "chunk_table": 91149536,
+      "end_position": 2878597104,
+      "zero_run": 6751868972,
+      "coefficient_level": 8059249179,
+      "entropy_padding": 9937921
+    },
+    "repeat": {
+      "frame_header": 99584
+    }
+  },
+  "symbol_counts": {
+    "tokens": 2666311633,
+    "small_levels": 2518367673,
+    "alternative_level_bits": 8650103395
+  }
+}

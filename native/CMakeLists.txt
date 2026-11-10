@@ -73,3 +73,8 @@ foreach(config Debug Release RelWithDebInfo MinSizeRel)
   set_target_properties(${runtime_targets} PROPERTIES
     "RUNTIME_OUTPUT_DIRECTORY_${config_upper}" "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 endforeach()
+
+add_executable(ghvbitaccount ../tools/bit_account.cpp)
+target_include_directories(ghvbitaccount PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(ghvbitaccount PRIVATE cxx_std_17)
+set_target_properties(ghvbitaccount PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/bin")
