@@ -56,6 +56,8 @@ Set equivalent power settings, background load and OpenMP environment in both le
 * **Profiles.** Both use GHVC9 Balanced with HQ embedded audio and source timing.
   `--profile compact` enables compact motion and compact coefficients.
   `--profile m1` omits both. `--threads 0` selects automatic encoder threading.
+  For native GHVC9 motion experiments, pass an even `--motion-range` from 0 to 12.
+  The full [radius 4 and 12 comparison](milestones/ghvc9/GHVC9_MOTION_RADIUS_2026-11-18.md) includes size, quality, CRC and playback results.
   Use `--change performance` for speed-only work or `--change compression` for
   rate/quality changes. Compare reconstructed hashes in both cases.
 * **Outputs.** Each trial writes the media, command log, metrics JSON, SHA-256 of
