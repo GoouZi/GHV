@@ -50,6 +50,8 @@ def run():
     p.add_argument('sources', type=Path, nargs='+')
     p.add_argument('--profile', choices=['compact', 'm1'], default='compact')
     p.add_argument('--threads', type=int, default=0)
+    p.add_argument('--motion-range', type=int, choices=range(0, 13, 2),
+                    help='override the native GHVC8/9 motion search radius in pixels')
     p.add_argument('--repeat', type=int, default=3)
     p.add_argument('--build', type=Path, required=True)
     p.add_argument('--change', choices=['performance', 'compression', 'baseline'], required=True)
@@ -104,6 +106,8 @@ def run():
             cmd=[sys.executable,'-m','ghv.cli.benchmark',str(src.resolve()),str(output),'--codec','9','--preset',
                  'balanced','--audio-quality','hq','--threads',str(a.threads),'--quality-metrics',
                  '--decode-frames','0','--report-json',str(raw)]
+            if a.motion_range is not None:
+                cmd.extend(['--motion-range', str(a.motion_range)])
             if a.profile == 'compact':
                 cmd.extend(['--compact-motion','--compact-coefficients'])
             with (dest/(name+'.log')).open('w',encoding='utf8') as log:

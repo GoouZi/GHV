@@ -132,6 +132,8 @@ def main():
     ap.add_argument('--codec', type=int, choices=[6, 7, 8, 9], default=9)
     ap.add_argument('--audio-quality', choices=['hq','compact'], default='hq')
     ap.add_argument('--threads', type=int, default=0)
+    ap.add_argument('--motion-range', type=int, choices=range(0, 13, 2),
+                    help='override the native GHVC8/9 motion search radius in pixels')
     ap.add_argument('--decode-frames',type=int,default=180,help='decode benchmark frames; 0 = full file')
     ap.add_argument('--quality-metrics',action='store_true',help='measure full-file PSNR and SSIM')
     ap.add_argument('--report-json',help='also save the structured report to this path')
@@ -158,6 +160,8 @@ def main():
 
     cmd = [sys.executable, '-m', 'ghv.cli.encode', str(src), str(out), '--preset', args.preset,
            '--audio-quality', args.audio_quality, '--codec', str(args.codec)]
+    if args.motion_range is not None:
+        cmd.extend(['--motion-range', str(args.motion_range)])
     if args.threads > 0:
         cmd += ['--threads', str(args.threads)]
     if args.compact_coefficients:
